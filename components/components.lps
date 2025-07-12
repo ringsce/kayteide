@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="components.lpr"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <TopLine Value="149"/>
+        <CursorPos X="21" Y="167"/>
+        <UsageCount Value="61"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="forms.pas"/>
+        <UnitName Value="Forms"/>
+        <EditorIndex Value="1"/>
+        <TopLine Value="15"/>
+        <CursorPos X="27" Y="32"/>
+        <UsageCount Value="31"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="InputBox.pas"/>
+        <UnitName Value="inputbox"/>
+        <EditorIndex Value="2"/>
+        <UsageCount Value="31"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="messagebox.pas"/>
+        <EditorIndex Value="3"/>
+        <UsageCount Value="31"/>
+        <Loaded Value="True"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="2">
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="8" Column="46"/>
+      </Position>
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="10"/>
+      </Position>
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="167" Column="21" TopLine="149"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+</CONFIG>

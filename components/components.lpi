@@ -28,6 +28,20 @@
         <Filename Value="components.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="forms.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="Forms"/>
+      </Unit>
+      <Unit>
+        <Filename Value="messagebox.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="MessageBox"/>
+      </Unit>
+      <Unit>
+        <Filename Value="listview.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

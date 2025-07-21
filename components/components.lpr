@@ -167,18 +167,30 @@ Library.program components;
 
 
 (* uses for components *)
+program components;
+
+(* uses for components *)
 uses
-forms in '../components/Forms.pas',
-inputbox in '../components/inputbox.pas',
-messagebox in '../components/messagebox.pas';
+  Forms in 'components/Forms.pas', // Still a regular unit
+  InputBox, // Now a library, FPC will find its .ppu and link the .so/.dylib
+  MessageBox, // Now a library
+  ListView; // Now a library
 
-
-interface
-
-
-implementation
+// No 'interface' or 'implementation' sections in a .lpr file.
+// The main program logic goes directly into the 'begin...end.' block.
 
 begin
+  // Your main program logic would go here.
+  // For example, you might initialize your application or CLI handler:
+  // ApplicationInitialize; // Call the initialization procedure from Forms.pas
+  // var MyCLIHandler: TCLIHandler;
+  // MyCLIHandler := TCLIHandler.Create('KayteLang', '1.0');
+  // try
+  //   MyCLIHandler.ParseArgs;
+  //   MyCLIHandler.Execute;
+  // finally
+  //   MyCLIHandler.Free;
+  // end;
 
 end.
 

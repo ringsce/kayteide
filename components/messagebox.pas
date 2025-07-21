@@ -1,32 +1,33 @@
-unit messagebox;
+unit MessageBox;
 
 {$mode objfpc}{$H+}
 
 interface
 
 uses
-  Classes, SysUtils;
+  SysUtils; // For String types
 
-type
-  TMessageBoxComponent = class(TComponent)
-  public
-    procedure ShowMessage(const ATitle, AMessage: String);
-  end;
-
-procedure Register;
+// A simple console-based message box.
+// AType parameter is ignored in this console stub, but kept for compatibility.
+procedure ShowMessage(const AText: String);
+function MessageBox(const AText, ACaption: String; AType: Integer): Integer;
 
 implementation
 
-procedure TMessageBoxComponent.ShowMessage(const ATitle, AMessage: String);
+procedure ShowMessage(const AText: String);
 begin
-  Writeln('=== ', ATitle, ' ===');
-  Writeln(AMessage);
-  Writeln('[OK]');
+  Writeln('--- Message ---');
+  Writeln(AText);
+  Writeln('---------------');
 end;
 
-procedure Register;
+function MessageBox(const AText, ACaption: String; AType: Integer): Integer;
 begin
-  // No Lazarus IDE, so RegisterComponents is not needed
+  Writeln('--- ' + ACaption + ' ---');
+  Writeln(AText);
+  Writeln('--------------------');
+  Result := 1; // Simulate a "OK" or "Yes" button press for simplicity
 end;
 
 end.
+

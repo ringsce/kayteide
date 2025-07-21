@@ -12,10 +12,11 @@ type
   private
     FName: String; // To store the name of the form
   public
-    constructor Create(AOwner: TComponent; const AName: String); // Added constructor
-    destructor Destroy; override; // Added destructor for proper cleanup
+    // Removed AOwner: TComponent as TObject.Create does not accept it
+    constructor Create(const AName: String); // Corrected constructor signature
+    destructor Destroy; override;
     procedure Show; virtual;
-    property Name: String read FName; // Property to access the form's name
+    property Name: String read FName;
   end;
 
 var
@@ -27,9 +28,10 @@ procedure ApplicationInitialize;
 
 implementation
 
-constructor TForm.Create(AOwner: TComponent; const AName: String);
+// Corrected constructor implementation: no AOwner parameter for inherited Create
+constructor TForm.Create(const AName: String);
 begin
-  inherited Create(AOwner);
+  inherited Create; // Call inherited TObject.Create without parameters
   FName := AName; // Assign the name
   FormsList.Add(Self); // Add this new form instance to the global list
   Writeln('Form "' + FName + '" created.'); // Debug output
@@ -60,3 +62,4 @@ initialization
 finalization
   FreeAndNil(FormsList); // Free the list itself
 end.
+

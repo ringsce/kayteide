@@ -1,13 +1,13 @@
 #include "downloadprogressdialog.h"
 #include "ui_downloadprogressdialog.h"
 
-#include <QDir>
-#include <QMessageBox>
 #include <QCoreApplication>
-#include <QScrollBar>
-#include <QListWidgetItem>
-#include <QStandardPaths>
 #include <QDebug>
+#include <QDir>
+#include <QListWidgetItem>
+#include <QMessageBox>
+#include <QScrollBar>
+#include <QStandardPaths>
 
 // Constructor and Destructor
 DownloadProgressDialog::DownloadProgressDialog(QWidget *parent)

@@ -39,40 +39,40 @@ set(CMAKE_AUTORCC ON) # Processes .qrc files to embed resources
 # in the add_executable command. Headers are found via includes in .cpp files.
 
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        linenumberarea.cpp
-        vbsyntaxhighlighter.cpp
-        cppsyntaxhighlighter.cpp
-        kaytesyntaxhighlighter.cpp
-        pascalsyntaxhighlighter.cpp
-        delphisyntaxhighlighter.cpp
-        choicemode.cpp
-        myjsontranslator.cpp
-        downloadprogressdialog.cpp
+        src/main.cpp
+        src/mainwindow.cpp
+        src/linenumberarea.cpp
+        src/vbsyntaxhighlighter.cpp
+        src/cppsyntaxhighlighter.cpp
+        src/kaytesyntaxhighlighter.cpp
+        src/pascalsyntaxhighlighter.cpp
+        src/delphisyntaxhighlighter.cpp
+        src/choicemode.cpp
+        src/myjsontranslator.cpp
+        src/downloadprogressdialog.cpp
         # ADD editortabwidget.cpp HERE - It's a source file
-        editortabwidget.cpp
+        src/editortabwidget.cpp
 )
 
 set(PROJECT_HEADERS
-        mainwindow.h
-        linenumberarea.h
-        vbsyntaxhighlighter.h
-        cppsyntaxhighlighter.h
-        kaytesyntaxhighlighter.h
-        pascalsyntaxhighlighter.h
-        delphisyntaxhighlighter.h
-        choicemode.h
-        myjsontranslator.h
-        downloadprogressdialog.h
+        src/mainwindow.h
+        src/linenumberarea.h
+        src/vbsyntaxhighlighter.h
+        src/cppsyntaxhighlighter.h
+        src/kaytesyntaxhighlighter.h
+        src/pascalsyntaxhighlighter.h
+        src/delphisyntaxhighlighter.h
+        src/choicemode.h
+        src/myjsontranslator.h
+        src/downloadprogressdialog.h
         # ADD editortabwidget.h HERE - It's a header file
-        editortabwidget.h
+        src/editortabwidget.h
 )
 
 set(PROJECT_FORMS
-        mainwindow.ui # List .ui files here. AUTOUIC will process them.
-        downloadprogressdialog.ui
-        choicemode.ui
+        src/mainwindow.ui # List .ui files here. AUTOUIC will process them.
+        src/downloadprogressdialog.ui
+        src/choicemode.ui
 )
 
 set(PROJECT_RESOURCES

@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectSession>
+    <Version Value="12"/>
+    <BuildModes Active="Default"/>
+    <Units>
+      <Unit>
+        <Filename Value="components.lpr"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <TopLine Value="163"/>
+        <CursorPos X="3" Y="185"/>
+        <UsageCount Value="67"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="forms.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="Forms"/>
+        <EditorIndex Value="1"/>
+        <TopLine Value="32"/>
+        <CursorPos Y="65"/>
+        <UsageCount Value="37"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="InputBox.pas"/>
+        <EditorIndex Value="2"/>
+        <TopLine Value="10"/>
+        <CursorPos Y="43"/>
+        <UsageCount Value="34"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="messagebox.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="MessageBox"/>
+        <EditorIndex Value="3"/>
+        <CursorPos X="30" Y="15"/>
+        <UsageCount Value="37"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="listview.pas"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="4"/>
+        <TopLine Value="85"/>
+        <CursorPos Y="118"/>
+        <UsageCount Value="23"/>
+        <Loaded Value="True"/>
+      </Unit>
+    </Units>
+    <JumpHistory HistoryIndex="25">
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="8" Column="46"/>
+      </Position>
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="10"/>
+      </Position>
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="167" Column="21" TopLine="149"/>
+      </Position>
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="181" Column="19" TopLine="148"/>
+      </Position>
+      <Position>
+        <Filename Value="forms.pas"/>
+        <Caret Line="19" Column="11"/>
+      </Position>
+      <Position>
+        <Filename Value="forms.pas"/>
+        <Caret Line="62" Column="5" TopLine="29"/>
+      </Position>
+      <Position>
+        <Filename Value="forms.pas"/>
+        <Caret Line="61" Column="37" TopLine="29"/>
+      </Position>
+      <Position>
+        <Filename Value="forms.pas"/>
+        <Caret Line="65" TopLine="32"/>
+      </Position>
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="173" Column="30" TopLine="151"/>
+      </Position>
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="184" TopLine="151"/>
+      </Position>
+      <Position>
+        <Filename Value="InputBox.pas"/>
+        <Caret Line="23" Column="50"/>
+      </Position>
+      <Position>
+        <Filename Value="InputBox.pas"/>
+        <Caret Line="39" TopLine="6"/>
+      </Position>
+      <Position>
+        <Filename Value="messagebox.pas"/>
+      </Position>
+      <Position>
+        <Filename Value="messagebox.pas"/>
+        <Caret Line="33"/>
+      </Position>
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="172" TopLine="151"/>
+      </Position>
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="176" Column="28" TopLine="152"/>
+      </Position>
+      <Position>
+        <Filename Value="InputBox.pas"/>
+        <Caret Line="20" Column="25" TopLine="6"/>
+      </Position>
+      <Position>
+        <Filename Value="InputBox.pas"/>
+        <Caret Line="39" TopLine="6"/>
+      </Position>
+      <Position>
+        <Filename Value="InputBox.pas"/>
+        <Caret Line="37" Column="43" TopLine="6"/>
+      </Position>
+      <Position>
+        <Filename Value="InputBox.pas"/>
+        <Caret Line="43" TopLine="10"/>
+      </Position>
+      <Position>
+        <Filename Value="messagebox.pas"/>
+        <Caret Line="20" Column="46"/>
+      </Position>
+      <Position>
+        <Filename Value="messagebox.pas"/>
+        <Caret Line="33"/>
+      </Position>
+      <Position>
+        <Filename Value="messagebox.pas"/>
+        <Caret Line="31" Column="28"/>
+      </Position>
+      <Position>
+        <Filename Value="messagebox.pas"/>
+        <Caret Line="33"/>
+      </Position>
+      <Position>
+        <Filename Value="components.lpr"/>
+        <Caret Line="179" TopLine="155"/>
+      </Position>
+      <Position>
+        <Filename Value="listview.pas"/>
+        <Caret Line="118" TopLine="85"/>
+      </Position>
+    </JumpHistory>
+    <RunParams>
+      <FormatVersion Value="2"/>
+      <Modes ActiveMode=""/>
+    </RunParams>
+  </ProjectSession>
+</CONFIG>

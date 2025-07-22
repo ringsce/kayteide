@@ -1,0 +1,43 @@
+{
+  "app_title": "Kayte IDE",
+  "menu_file": "&File",
+  "menu_file_open": "&Open",
+  "menu_file_save": "&Save",
+  "menu_file_save_as": "Save &As...",
+  "menu_file_exit": "E&xit",
+  "menu_build": "&Build",
+  "menu_build_build": "&Build",
+  "menu_build_run": "&Run",
+  "menu_build_clean": "&Clean",
+  "menu_build_debug": "&Debug",
+  "menu_help": "&Help",
+  "menu_help_about": "&About",
+
+  "dialog_open_file_title": "Open File",
+  "dialog_save_file_as_title": "Save File As",
+
+  "message_error_title": "Error",
+  "message_error_open_file": "Could not open file: %1",
+  "message_error_save_file": "Could not save file: %1",
+
+  "message_build_triggered": "Build project action triggered.",
+  "message_run_triggered": "Run project action triggered.",
+  "message_clean_triggered": "Clean project action triggered.",
+  "message_debug_triggered": "Debug project action triggered.",
+
+  "about_dialog_title": "About Kayte IDE",
+  "about_dialog_text_html": "<b>Kayte IDE</b><br>Version 1.0 (Alpha)<br><br>A lightweight, cross-platform Integrated Development Environment.<br>Built with Qt 6 and C++17.<br><br>&copy; Copyright 2025 Pedro Dias Vicente.<br>All rights reserved.",
+
+  "mode_selection_dialog_title": "Choose Development Mode",
+  "mode_selection_dialog_label": "Choose Development Mode:",
+  "mode_selection_text_editor": "Text Editor Mode (Code Editor)",
+  "mode_selection_rad_mode": "RAD (Rapid Application Development) Mode",
+  "mode_selection_button_next": "Next",
+
+  "message_mode_activated_text_editor_title": "Mode Activated",
+  "message_mode_activated_text_editor_text": "Text Editor Mode activated!",
+  "message_mode_activated_rad_title": "Mode Activated",
+  "message_mode_activated_rad_text": "RAD Mode activated!",
+  "message_mode_selection_cancel_title": "Mode Selection",
+  "message_mode_selection_cancel_text": "No mode selected. Defaulting to Text Editor Mode."
+}

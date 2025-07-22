@@ -6,8 +6,10 @@ project(KayteIDE LANGUAGES CXX)
 if (APPLE)
     if (NOT CMAKE_OSX_ARCHITECTURES)
         if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+            # Build for both arm64 (Apple Silicon) and x86_64 (Intel) by default
             set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Build architectures for macOS")
         else()
+            # Default to x86_64 for Intel Macs
             set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "Build architectures for macOS")
         endif()
     endif()
@@ -20,17 +22,22 @@ endif()
 # C++17 everywhere
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_EXTENSIONS OFF) # Use strict C++17
 
 # ---- Qt 6 ---------------------------------------------------------------
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTORCC ON)
+# Enable automatic processing for Qt's meta-object system, UI files, and resource files
+set(CMAKE_AUTOMOC ON) # Processes Q_OBJECT macros in headers
+set(CMAKE_AUTOUIC ON) # Processes .ui files to generate ui_*.h
+set(CMAKE_AUTORCC ON) # Processes .qrc files to embed resources
 
 # ------------------------------------------------------------------------
 # List every source/header/ui file once
+# CMake's AUTOUIC/AUTOMOC will handle the dependencies
+# You only need to list the .cpp files, .ui files, and .qrc files (if any)
+# in the add_executable command. Headers are found via includes in .cpp files.
+
 set(PROJECT_SOURCES
         main.cpp
         mainwindow.cpp
@@ -40,6 +47,11 @@ set(PROJECT_SOURCES
         kaytesyntaxhighlighter.cpp
         pascalsyntaxhighlighter.cpp
         delphisyntaxhighlighter.cpp
+        choicemode.cpp
+        myjsontranslator.cpp
+        downloadprogressdialog.cpp
+        # ADD editortabwidget.cpp HERE - It's a source file
+        editortabwidget.cpp
 )
 
 set(PROJECT_HEADERS
@@ -50,19 +62,39 @@ set(PROJECT_HEADERS
         kaytesyntaxhighlighter.h
         pascalsyntaxhighlighter.h
         delphisyntaxhighlighter.h
+        choicemode.h
+        myjsontranslator.h
+        downloadprogressdialog.h
+        # ADD editortabwidget.h HERE - It's a header file
+        editortabwidget.h
 )
+
 set(PROJECT_FORMS
-        mainwindow.ui
+        mainwindow.ui # List .ui files here. AUTOUIC will process them.
+        downloadprogressdialog.ui
+        choicemode.ui
 )
 
-# FIX IS HERE: Change ${APP_SOURCES} to ${PROJECT_SOURCES}
+set(PROJECT_RESOURCES
+        resources/i18n.qrc
+        resources/main_resources.qrc # <--- These are the actual QRC files
+        # REMOVED: editortabwidget.h and editortabwidget.cpp from here
+)
+
+
+# Create the executable target.
+# Only provide source files (.cpp) and UI files (.ui) directly.
+# The headers will be included by the source files and AUTOMOC/AUTOUIC will process them.
 qt_add_executable(${PROJECT_NAME}
-        ${PROJECT_SOURCES} # <--- CORRECTED THIS LINE!
-        ${PROJECT_HEADERS}
+        ${PROJECT_SOURCES}
         ${PROJECT_FORMS}
+        # REMOVED: ${PROJECT_HEADERS} - Headers are implicitly handled by includes in .cpp files
+        # If you include a header in PROJECT_HEADERS and it contains Q_OBJECT,
+        # AUTOMOC will pick it up when processing the .cpp files that include it.
+        # Explicitly listing them here is generally not needed and can sometimes confuse the build system.
+        ${PROJECT_RESOURCES}
 )
 
-# --- macOS Specific: Add App Icon and Bundle Generation ---
 if (APPLE)
     set(MACOS_BUNDLE_ICON_FILE "${CMAKE_SOURCE_DIR}/resources/kayte.icns")
     set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -73,8 +105,8 @@ if (APPLE)
     )
     set_source_files_properties(resources/kayte.icns PROPERTIES XCODE_EXPLICIT_FILE_TYPE .icns)
 endif()
-# ------------------------------------------------------------------------
 
+# Link the necessary Qt libraries to your executable
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
         Qt6::Core
@@ -82,11 +114,13 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Widgets
 )
 
+# Add compile definitions, typically for debug configurations
 target_compile_definitions(${PROJECT_NAME}
         PRIVATE
-        $<$<CONFIG:Debug>:QT_QML_DEBUG>
+        $<$<CONFIG:Debug>:QT_QML_DEBUG> # Adds QT_QML_DEBUG for Debug builds
 )
 
+# Set the output directory for the executable
 set_target_properties(${PROJECT_NAME} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )

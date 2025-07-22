@@ -16,12 +16,15 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QTextEdit" name="memo1">
-      <property name="font">
-       <font>
-        <family>Monospace</family>
-        <pointsize>12</pointsize>
-       </font>
+     <widget class="QTabWidget" name="tabWidgetEditor">
+      <property name="tabsClosable">
+       <bool>true</bool>
+      </property>
+      <property name="movable">
+       <bool>true</bool>
+      </property>
+      <property name="currentIndex">
+       <number>-1</number>
       </property>
      </widget>
     </item>
@@ -40,9 +43,12 @@
     <property name="title">
      <string>&amp;File</string>
     </property>
+    <addaction name="actionNewFile"/>
     <addaction name="actionOpen"/>
     <addaction name="actionSave"/>
     <addaction name="actionSave_As"/>
+    <addaction name="separator"/>
+    <addaction name="actionCloseTab"/>
     <addaction name="separator"/>
     <addaction name="actionExit"/>
    </widget>
@@ -64,7 +70,8 @@
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuProject"/>
-   <addaction name="menuHelp"/> </widget>
+   <addaction name="menuHelp"/>
+  </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
    <property name="windowTitle">
@@ -76,14 +83,19 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="actionNewFile"/>
    <addaction name="actionOpen"/>
    <addaction name="actionSave"/>
    <addaction name="actionSave_As"/>
+   <addaction name="actionCloseTab"/>
    <addaction name="separator"/>
    <addaction name="actionBuild"/>
    <addaction name="actionClean"/>
    <addaction name="actionRun"/>
    <addaction name="actionDebug"/>
+   <addaction name="separator"/>
+   <addaction name="actionAbout"/>
+   <addaction name="actionExit"/>
   </widget>
   <action name="actionOpen">
    <property name="text">
@@ -158,6 +170,22 @@
    </property>
    <property name="toolTip">
     <string>About KayteIDE</string>
+   </property>
+  </action>
+  <action name="actionNewFile">
+   <property name="text">
+    <string>&amp;New File</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+N</string>
+   </property>
+  </action>
+  <action name="actionCloseTab">
+   <property name="text">
+    <string>&amp;Close Tab</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+W</string>
    </property>
   </action>
  </widget>

@@ -7,20 +7,20 @@
       <Unit>
         <Filename Value="components.lpr"/>
         <IsPartOfProject Value="True"/>
-        <IsVisibleTab Value="True"/>
-        <TopLine Value="162"/>
-        <CursorPos X="3" Y="177"/>
-        <UsageCount Value="66"/>
+        <TopLine Value="163"/>
+        <CursorPos X="3" Y="185"/>
+        <UsageCount Value="67"/>
         <Loaded Value="True"/>
       </Unit>
       <Unit>
         <Filename Value="forms.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="Forms"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
-        <TopLine Value="32"/>
+        <TopLine Value="31"/>
         <CursorPos Y="65"/>
-        <UsageCount Value="36"/>
+        <UsageCount Value="37"/>
         <Loaded Value="True"/>
       </Unit>
       <Unit>
@@ -28,7 +28,7 @@
         <EditorIndex Value="2"/>
         <TopLine Value="10"/>
         <CursorPos Y="43"/>
-        <UsageCount Value="33"/>
+        <UsageCount Value="34"/>
         <Loaded Value="True"/>
       </Unit>
       <Unit>
@@ -37,7 +37,7 @@
         <UnitName Value="MessageBox"/>
         <EditorIndex Value="3"/>
         <CursorPos X="30" Y="15"/>
-        <UsageCount Value="36"/>
+        <UsageCount Value="37"/>
         <Loaded Value="True"/>
       </Unit>
       <Unit>
@@ -46,7 +46,7 @@
         <EditorIndex Value="4"/>
         <TopLine Value="85"/>
         <CursorPos Y="118"/>
-        <UsageCount Value="22"/>
+        <UsageCount Value="23"/>
         <Loaded Value="True"/>
       </Unit>
     </Units>

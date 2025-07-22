@@ -1,0 +1,43 @@
+{
+  "app_title": "Kayte IDE",
+  "menu_file": "&Archivo",
+  "menu_file_open": "&Abrir",
+  "menu_file_save": "&Guardar",
+  "menu_file_save_as": "Guardar &como...",
+  "menu_file_exit": "&Salir",
+  "menu_build": "&Construir",
+  "menu_build_build": "&Construir",
+  "menu_build_run": "&Ejecutar",
+  "menu_build_clean": "&Limpiar",
+  "menu_build_debug": "&Depurar",
+  "menu_help": "&Ayuda",
+  "menu_help_about": "&Acerca de",
+
+  "dialog_open_file_title": "Abrir Archivo",
+  "dialog_save_file_as_title": "Guardar Archivo como",
+
+  "message_error_title": "Error",
+  "message_error_open_file": "No se pudo abrir el archivo: %1",
+  "message_error_save_file": "No se pudo guardar el archivo: %1",
+
+  "message_build_triggered": "Acción de construir proyecto activada.",
+  "message_run_triggered": "Acción de ejecutar proyecto activada.",
+  "message_clean_triggered": "Acción de limpiar proyecto activada.",
+  "message_debug_triggered": "Acción de depurar proyecto activada.",
+
+  "about_dialog_title": "Acerca de Kayte IDE",
+  "about_dialog_text_html": "<b>Kayte IDE</b><br>Versión 1.0 (Alfa)<br><br>Un entorno de desarrollo integrado ligero y multiplataforma.<br>Construido con Qt 6 y C++17.<br><br>&copy; Copyright 2025 Pedro Dias Vicente.<br>Todos los derechos reservados.",
+
+  "mode_selection_dialog_title": "Elegir Modo de Desarrollo",
+  "mode_selection_dialog_label": "Elegir Modo de Desarrollo:",
+  "mode_selection_text_editor": "Modo Editor de Texto (Editor de Código)",
+  "mode_selection_rad_mode": "Modo RAD (Desarrollo Rápido de Aplicaciones)",
+  "mode_selection_button_next": "Siguiente",
+
+  "message_mode_activated_text_editor_title": "Modo Activado",
+  "message_mode_activated_text_editor_text": "¡Modo Editor de Texto activado!",
+  "message_mode_activated_rad_title": "Modo Activado",
+  "message_mode_activated_rad_text": "¡Modo RAD activado!",
+  "message_mode_selection_cancel_title": "Selección de Modo",
+  "message_mode_selection_cancel_text": "No se seleccionó ningún modo. Se establecerá el modo Editor de Texto por defecto."
+}

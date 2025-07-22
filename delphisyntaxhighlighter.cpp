@@ -1,4 +1,9 @@
 #include "delphisyntaxhighlighter.h"
+#include <QRegularExpression> // Ensure QRegularExpression is included
+#include <QTextCharFormat>    // Ensure QTextCharFormat is included
+#include <QFont>              // Ensure QFont is included
+#include <QColor>             // Ensure QColor is included
+#include <utility>            // *** ADD THIS LINE for std::as_const ***
 
 DelphiSyntaxHighlighter::DelphiSyntaxHighlighter(QTextDocument *parent)
     : PascalSyntaxHighlighter(parent) // Call base class constructor
@@ -100,7 +105,7 @@ void DelphiSyntaxHighlighter::highlightBlock(const QString &text)
     // If a Delphi keyword (e.g., 'CLASS') was first matched by a generic Pascal keyword rule,
     // and then later by a more specific Delphi keyword rule, the latter format will apply.
     // Ensure `setupDelphiRules` appends its rules after `setupRules` implicitly via constructor chain.
-    for (const HighlightingRule &rule : qAsConst(highlightingRules)) {
+    for (const HighlightingRule &rule : std::as_const(highlightingRules)) { // *** CHANGED qAsConst to std::as_const ***
         // This loop applies ALL rules, including those inherited/set by PascalSyntaxHighlighter
         // This implicitly handles overrides if rules are ordered such that
         // more specific Delphi rules come after general Pascal rules.

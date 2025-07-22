@@ -1,15 +1,17 @@
-<!DOCTYPE RCC><RCC version="1.0">
-  <qresource prefix="/">
-    <!-- ‼️  Store the PNG/SVG files in the same folder (resources/icons) -->
-    <file alias="icons/open.png">icons/open.png</file>
-    <file alias="icons/save.png">icons/save.png</file>
-    <file alias="icons/save_as.png">icons/save_as.png</file>
-    <file alias="icons/exit.png">icons/exit.png</file>
-
-    <file alias="icons/build.png">icons/build.png</file>
-    <file alias="icons/clean.png">icons/clean.png</file>
-    <file alias="icons/run.png">icons/run.png</file>
-    <file alias="icons/debug.png">icons/debug.png</file>
-  </qresource>
+<RCC>
+    <qresource prefix="/">
+        <file alias="icons/open.png">icons/open.png</file>
+        <file alias="icons/save.png">icons/save.png</file>
+        <file alias="icons/save_as.png">icons/save_as.png</file>
+        <file alias="icons/exit.png">icons/exit.png</file>
+        <file alias="icons/build.png">icons/build.png</file>
+        <file alias="icons/clean.png">icons/clean.png</file>
+        <file alias="icons/run.png">icons/run.png</file>
+        <file alias="icons/debug.png">icons/debug.png</file>
+        <file>icons/kayte.png</file>
+    </qresource>
+    <qresource prefix="/i18n">
+        <file>en.json</file>
+        <file>es.json</file>
+    </qresource>
 </RCC>
-

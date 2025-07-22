@@ -2,6 +2,7 @@
 #define DELPHISYNTAXHIGHLIGHTER_H
 
 #include "pascalsyntaxhighlighter.h" // Inherit from PascalSyntaxHighlighter
+#include <utility> // For std::as_const
 
 class DelphiSyntaxHighlighter : public PascalSyntaxHighlighter
 {

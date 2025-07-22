@@ -182,7 +182,7 @@ uses
 begin
   // Your main program logic would go here.
   // For example, you might initialize your application or CLI handler:
-  // ApplicationInitialize; // Call the initialization procedure from Forms.pas
+  ApplicationInitialize; // Call the initialization procedure from Forms.pas
   // var MyCLIHandler: TCLIHandler;
   // MyCLIHandler := TCLIHandler.Create('KayteLang', '1.0');
   // try

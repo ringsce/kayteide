@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>KayteIDE</string>
 	<key>CFBundleIconFile</key>
-	<string>kayte.icns</string>
+	<string>resources/kayte.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.kd.kayteide</string>
 	<key>CFBundleInfoDictionaryVersion</key>

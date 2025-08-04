@@ -283,7 +283,8 @@ if (NOT ANDROID AND UNIX AND NOT APPLE)
     set(CPACK_PACKAGE_VENDOR "Pedro Dias Vicente")
     set(CPACK_PACKAGE_CONTACT "pdvicente@gleentech.com")
     set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://www.ringscejs.gleentech.com")
-
+    set (CPACK_DEBIAN_PACKAGE_GROUP "Programming")
+    
     # --- RPM Package Configuration ---
     # Set CPack generator to include RPM
     set(CPACK_GENERATOR "DEB;RPM")

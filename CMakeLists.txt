@@ -32,8 +32,6 @@ set(CMAKE_AUTOMOC ON) # Processes Q_OBJECT macros in headers
 set(CMAKE_AUTOUIC ON) # Processes .ui files to generate ui_*.h
 set(CMAKE_AUTORCC ON) # Processes .qrc files to embed resources
 
-# Add the subdirectory containing the pas2dox project
-#add_subdirectory(plugins/pas2dox)
 # ------------------------------------------------------------------------
 # List every source/header/ui file once
 # CMake's AUTOUIC/AUTOMOC will handle the dependencies
@@ -214,16 +212,15 @@ endif()
 # Link the necessary Qt libraries and pas2dox_lib to your executable
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
-        #pas2dox_lib # <--- ADD THIS LINE
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
 )
 
 # Ensure KayteIDE can find the headers from pas2dox plugin
-#target_include_directories(${PROJECT_NAME} PRIVATE
-#        ${CMAKE_SOURCE_DIR}/plugins/pas2dox # To find pasdoxflexlexer.h and globals.h
-#)
+target_include_directories(${PROJECT_NAME} PRIVATE
+        ${CMAKE_SOURCE_DIR}/plugins/pas2dox # To find pasdoxflexlexer.h and globals.h
+)
 
 
 # Add compile definitions, typically for debug configurations
@@ -264,4 +261,31 @@ if (APPLE AND NOT ANDROID)
             COMMENT "Creating macOS DMG installer"
             VERBATIM
     )
+endif()
+
+# --- CPack Configuration for Debian Package ---
+# Only configure for non-Android and Linux builds
+if (NOT ANDROID AND UNIX AND NOT APPLE)
+    set(CPACK_GENERATOR "DEB")
+
+    # Set package information
+    set(CPACK_PACKAGE_NAME "kayteide")
+    set(CPACK_PACKAGE_VERSION "0.1.0")
+    set(CPACK_PACKAGE_DESCRIPTION "KayteIDE, a simple IDE for Pascal and C++")
+    set(CPACK_PACKAGE_VENDOR "Your Name or Company")
+    set(CPACK_PACKAGE_CONTACT "your.email@example.com")
+    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://www.yourproject.com")
+
+    # Specify the installation directories for the package
+    # We will install the main executable to /usr/bin
+    # This requires an "install" command
+    install(TARGETS ${PROJECT_NAME}
+            RUNTIME DESTINATION bin)
+
+    # You can also install other files like icons, desktop entries, etc.
+    # Example:
+    # install(FILES "${CMAKE_SOURCE_DIR}/resources/kayte.png"
+    #         DESTINATION "share/icons/hicolor/128x128/apps")
+
+    include(CPack)
 endif()

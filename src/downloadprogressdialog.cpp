@@ -1,13 +1,13 @@
 #include "downloadprogressdialog.h"
 #include "ui_downloadprogressdialog.h"
 
-#include <QCoreApplication>
-#include <QDebug>
 #include <QDir>
-#include <QListWidgetItem>
 #include <QMessageBox>
+#include <QCoreApplication>
 #include <QScrollBar>
+#include <QListWidgetItem>
 #include <QStandardPaths>
+#include <QDebug>
 
 // Constructor and Destructor
 DownloadProgressDialog::DownloadProgressDialog(QWidget *parent)
@@ -28,12 +28,10 @@ DownloadProgressDialog::DownloadProgressDialog(QWidget *parent)
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &DownloadProgressDialog::handleCancelButtonClicked);
 
     connect(process, &QProcess::started, this, &DownloadProgressDialog::handleProcessStarted);
+    // IMPORTANT: Removed the global connections for readyReadStandardOutput and readyReadStandardError
+    // These will now only be connected conditionally if live logging is desired for specific long-running commands.
     connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, &DownloadProgressDialog::handleProcessFinished);
-    connect(process, &QProcess::readyReadStandardOutput,
-            this, &DownloadProgressDialog::handleProcessReadyReadStandardOutput);
-    connect(process, &QProcess::readyReadStandardError,
-            this, &DownloadProgressDialog::handleProcessReadyReadStandardError);
     connect(process, &QProcess::errorOccurred,
             this, &DownloadProgressDialog::handleProcessErrorOccurred);
 
@@ -62,13 +60,13 @@ void DownloadProgressDialog::startProcess(const QStringList &repos, const QStrin
 {
     reposToDownload.clear();
     for (const QString& repoStr : repos) {
-        QStringList parts = repoStr.split(';');
+        QStringList parts = repoStr.split(';'); // <--- This correctly splits by semicolon
         if (parts.size() >= 2) {
             GitHubRepo repo;
-            repo.url = parts.at(0);
-            repo.localDirName = parts.at(1);
+            repo.url = parts.at(0);        // <--- Extracts the URL
+            repo.localDirName = parts.at(1); // <--- Extracts the local directory name
             if (parts.size() >= 3) {
-                repo.branch = parts.at(2);
+                repo.branch = parts.at(2); // <--- Extracts the branch if present
             }
             reposToDownload.append(repo);
         }
@@ -90,21 +88,20 @@ void DownloadProgressDialog::startProcess(const QStringList &repos, const QStrin
 // --- General Process Handlers ---
 void DownloadProgressDialog::handleProcessStarted()
 {
-    log(tr("Process started for stage: %1").arg(currentStage));
+    log(tr("Process started. Command: %1 %2").arg(process->program(), process->arguments().join(" ")));
 }
 
+// These handlers are now only called if explicitly connected for live output in specific stages.
 void DownloadProgressDialog::handleProcessReadyReadStandardOutput()
 {
     QByteArray data = process->readAllStandardOutput();
-    // Decide whether to log this verbosely or only for specific stages
-    // For now, let's log everything to debug
-    log(QString::fromUtf8(data));
+    log(QString::fromUtf8(data)); // Log raw output
 }
 
 void DownloadProgressDialog::handleProcessReadyReadStandardError()
 {
     QByteArray data = process->readAllStandardError();
-    log(tr("ERROR (stderr): %1").arg(QString::fromUtf8(data)));
+    log(tr("STDERR: %1").arg(QString::fromUtf8(data)));
 }
 
 void DownloadProgressDialog::handleProcessErrorOccurred(QProcess::ProcessError error)
@@ -119,10 +116,12 @@ void DownloadProgressDialog::handleProcessErrorOccurred(QProcess::ProcessError e
         case QProcess::UnknownError: errorString = "Unknown error"; break;
         default: errorString = "No error"; break;
     }
-    log(tr("Process error occurred: %1 - %2").arg(errorString).arg(process->errorString()));
+    log(tr("QProcess Error: %1. Details: %2").arg(errorString, process->errorString()));
     if (currentStage != BrewInstallStage) { // Brew install might often need user input or permissions
         QMessageBox::critical(this, tr("Process Error"),
-                              tr("An error occurred during process execution: %1.\nCheck log for details.").arg(errorString));
+                              tr("A critical system command could not be run. "
+                                 "Please ensure your system setup is correct and command line tools are installed.\n\n"
+                                 "Error: %1").arg(errorString));
         emit processAborted();
         reject();
     }
@@ -131,11 +130,18 @@ void DownloadProgressDialog::handleProcessErrorOccurred(QProcess::ProcessError e
 void DownloadProgressDialog::handleCancelButtonClicked()
 {
     if (process->state() != QProcess::NotRunning) {
-        process->kill();
-        process->waitForFinished(1000); // Give it a moment to terminate
+        log(tr("Attempting to terminate running process..."));
+        process->terminate();
+        if (!process->waitForFinished(5000)) { // Give it 5 seconds to terminate gracefully
+            log(tr("Process did not terminate gracefully, killing..."));
+            process->kill(); // Force kill if it doesn't terminate
+        }
+        log(tr("Process cancelled by user."));
+    } else {
+        log(tr("No active process to cancel."));
     }
-    emit processAborted();
-    reject(); // Close dialog
+    emit processAborted(); // Signal cancellation
+    reject(); // Close the dialog
 }
 
 // --- Stage-specific Handlers and Flow Control ---
@@ -180,11 +186,14 @@ void DownloadProgressDialog::installNextMissingTool()
              ui->repoListWidget->addItem(tr("Installing: %1...").arg(toolToInstall));
         }
 
+        // It's good practice to connect readyRead signals for live output during installation
+        connect(process, &QProcess::readyReadStandardOutput, this, &DownloadProgressDialog::handleProcessReadyReadStandardOutput);
+        connect(process, &QProcess::readyReadStandardError, this, &DownloadProgressDialog::handleProcessReadyReadStandardError);
+
         process->start("brew", QStringList() << "install" << toolToInstall);
     } else {
         // All missing tools have been attempted for installation
         log(tr("\n--- Missing Tool Installation Attempt Complete ---"));
-        // After installation attempts, we proceed. Final check on tool presence could be added here.
         finishAllChecksAndStartDownloads();
     }
 }
@@ -192,6 +201,10 @@ void DownloadProgressDialog::installNextMissingTool()
 // Handles completion of a single repository download
 void DownloadProgressDialog::handleSingleRepoDownloadFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
+    // Disconnect readyRead signals after process finishes for this stage
+    disconnect(process, &QProcess::readyReadStandardOutput, this, &DownloadProgressDialog::handleProcessReadyReadStandardOutput);
+    disconnect(process, &QProcess::readyReadStandardError, this, &DownloadProgressDialog::handleProcessReadyReadStandardError);
+
     log(tr("Download process finished with exit code %1, status %2 for repo %3.")
         .arg(exitCode).arg(exitStatus).arg(reposToDownload.at(currentRepoIndex).localDirName));
 
@@ -250,16 +263,22 @@ void DownloadProgressDialog::startXcodeToolsCheck()
     process->start("xcode-select", QStringList() << "-p");
 }
 
+// In downloadprogressdialog.cpp
 void DownloadProgressDialog::handleXcodeToolsCheckFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
     Q_UNUSED(exitStatus);
-    QString output = process->readAllStandardOutput().trimmed();
-    // Check for non-empty output and a typical path, or just exitCode == 0 for simple check
+    // Read the output once and store it
+    QByteArray rawData = process->readAllStandardOutput(); // Read raw byte array
+    QString output = QString::fromUtf8(rawData).trimmed(); // Convert to string and trim
+
+    qDebug() << "Xcode check output (raw):" << QString::fromUtf8(rawData); // Log the raw string
+    qDebug() << "Xcode check output (trimmed):" << output; // Log the trimmed string
+
     if (exitCode == 0 && !output.isEmpty()) {
         log(tr("Xcode Command Line Tools found at: %1").arg(output));
         startBrewCheck();
     } else {
-        log(tr("Xcode Command Line Tools not found or not correctly configured. Output: %1").arg(output));
+        log(tr("Xcode Command Line Tools not found or not correctly configured. Output: '%1', Exit Code: %2").arg(output).arg(exitCode));
         QMessageBox::information(this, tr("Install Xcode Command Line Tools"),
                                  tr("Xcode Command Line Tools are required for development. "
                                     "Please install them by running:\n\n"
@@ -300,11 +319,20 @@ void DownloadProgressDialog::startBrewInstall()
     log(tr("Beginning Homebrew installation. You may be prompted for your password."));
 
     QString installScript = "curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh";
+
+    // Connect readyRead signals for live output during installation
+    connect(process, &QProcess::readyReadStandardOutput, this, &DownloadProgressDialog::handleProcessReadyReadStandardOutput);
+    connect(process, &QProcess::readyReadStandardError, this, &DownloadProgressDialog::handleProcessReadyReadStandardError);
+
     process->start("/bin/bash", QStringList() << "-c" << installScript);
 }
 
 void DownloadProgressDialog::handleBrewInstallFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
+    // Disconnect readyRead signals after process finishes for this stage
+    disconnect(process, &QProcess::readyReadStandardOutput, this, &DownloadProgressDialog::handleProcessReadyReadStandardOutput);
+    disconnect(process, &QProcess::readyReadStandardError, this, &DownloadProgressDialog::handleProcessReadyReadStandardError);
+
     Q_UNUSED(exitStatus);
     if (exitCode == 0) {
         log(tr("Homebrew installation completed successfully."));
@@ -362,6 +390,10 @@ void DownloadProgressDialog::startToolInstall()
 
 void DownloadProgressDialog::handleToolInstallFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
+    // Disconnect readyRead signals after process finishes for this stage
+    disconnect(process, &QProcess::readyReadStandardOutput, this, &DownloadProgressDialog::handleProcessReadyReadStandardOutput);
+    disconnect(process, &QProcess::readyReadStandardError, this, &DownloadProgressDialog::handleProcessReadyReadStandardError);
+
     Q_UNUSED(exitStatus);
     QString tool = missingTools.at(currentMissingToolInstallIndex);
 
@@ -427,9 +459,12 @@ void DownloadProgressDialog::processNextRepo()
         log(tr("Running: git %1").arg(arguments.join(" ")));
 
         // Set the working directory for git clone to the download destination parent
-        // This makes git clone 'repo.url repoPath' behave correctly if repoPath is relative
-        // But since repoPath is absolute, setting workingDirectory is less critical but good practice
         process->setWorkingDirectory(downloadDestinationDir);
+
+        // Connect readyRead signals for live output during download
+        connect(process, &QProcess::readyReadStandardOutput, this, &DownloadProgressDialog::handleProcessReadyReadStandardOutput);
+        connect(process, &QProcess::readyReadStandardError, this, &DownloadProgressDialog::handleProcessReadyReadStandardError);
+
         process->start("git", arguments);
     } else {
         // All repositories processed
@@ -443,9 +478,9 @@ void DownloadProgressDialog::processNextRepo()
 // --- UI Update Helpers ---
 void DownloadProgressDialog::log(const QString &message)
 {
-    // Append message to the text browser (now QTextEdit), ensure scroll to bottom
-    ui->logTextEdit->append(message); // <-- CHANGED from logTextBrowser to logTextEdit
-    QScrollBar *sb = ui->logTextEdit->verticalScrollBar(); // <-- CHANGED here too
+    // Append message to the text browser, ensure scroll to bottom
+    ui->logTextEdit->append(message); // Corrected to logTextEdit
+    QScrollBar *sb = ui->logTextEdit->verticalScrollBar();
     if (sb) {
         sb->setValue(sb->maximum());
     }
@@ -454,7 +489,7 @@ void DownloadProgressDialog::log(const QString &message)
 
 void DownloadProgressDialog::setStatus(const QString &status)
 {
-    ui->statusLabel->setText(status); // <-- CHANGED from currentStatusLabel to statusLabel
+    ui->statusLabel->setText(status); // Corrected to statusLabel
     qDebug() << "STATUS:" << status;
 }
 

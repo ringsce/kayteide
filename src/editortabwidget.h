@@ -1,8 +1,11 @@
+// In src/editortabwidget.h
+
 #ifndef EDITORTABWIDGET_H
 #define EDITORTABWIDGET_H
 
 #include <QWidget>
-#include <QTextEdit>
+// Remove redundant include: #include <QTextEdit> // No longer directly needed if using QPlainTextEdit
+#include <QPlainTextEdit>     // Keep this for the actual editor widget
 #include <QSyntaxHighlighter> // Base class for highlighters
 #include <QFileInfo>          // To extract filename from path
 
@@ -19,20 +22,27 @@ class EditorTabWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit EditorTabWidget(QWidget *parent = nullptr);
+    // IMPORTANT: Make sure this constructor matches your .cpp implementation
+    explicit EditorTabWidget(const QString &filePath = QString(), QWidget *parent = nullptr);
     ~EditorTabWidget();
 
     // Accessors for content and file path
     QString filePath() const { return m_filePath; }
-    bool isModified() const { return m_textEdit->document()->isModified(); }
+
+    // Use m_editor for document access
+    bool isModified() const { return m_editor->document()->isModified(); }
     void setModified(bool modified); // Expose this to MainWindow if needed for new tabs
+
+    // This is the correct getter, now returning the consistent m_editor
+    QPlainTextEdit* getPlainTextEdit() const { return m_editor; }
 
     // File operations
     bool loadFile(const QString &filePath);
     bool saveFile(const QString &filePath);
 
-    // Get the QTextEdit for external access (e.g., for global find/replace if needed)
-    QTextEdit* textEdit() const { return m_textEdit; }
+    // Remove textEdit() if you're consistently using QPlainTextEdit
+    // If you need a generic QTextEdit* (e.g., for document methods), you can cast or provide another getter:
+    // QTextEdit* textEditAsBase() const { return m_editor; } // QPlainTextEdit inherits from QTextEdit
 
     // Line number area access for update signals (protected/private often fine)
     LineNumberArea *lineNumberArea() const { return m_lineNumberArea; }
@@ -43,11 +53,16 @@ protected:
 private slots:
     void updateLineNumberAreaWidth(int newBlockCount);
     void highlightCurrentLine();
-    void updateLineNumberArea(int value); // <--- CHANGE THIS LINE IN THE HEADER
-    void handleContentsChanged(); // Slot for QTextEdit::contentsChanged
+    // Use m_editor's scroll bar for updates
+    void updateLineNumberArea(int value);
+    void handleContentsChanged(); // Slot for QPlainTextEdit::contentsChanged or document's contentsChanged
+
+    // Remove these if handleContentsChanged is sufficient
+    // void on_editor_textChanged();
+    // void on_document_contentsChanged();
 
 private:
-    QTextEdit *m_textEdit;
+    QPlainTextEdit *m_editor; // <--- ONLY ONE EDITOR POINTER (QPlainTextEdit*)
     LineNumberArea *m_lineNumberArea;
     QSyntaxHighlighter *m_currentHighlighter; // Pointer to the active highlighter
 

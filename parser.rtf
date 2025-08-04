@@ -1,0 +1,62 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fmodern\fcharset0 Courier;}
+{\colortbl;\red255\green255\blue255;\red173\green173\blue173;\red30\green33\blue39;}
+{\*\expandedcolortbl;;\csgenericrgb\c67843\c67843\c67843;\csgenericrgb\c11765\c12941\c15294;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f0\fs26 \cf2 \cb3 // 3. PasDoxFlexLexer Class Definition\
+//    This is where you move all previously global variables and helper functions.\
+//    Flex generates the base class; you extend it.\
+//class PasDoxFlexLexer : public FlexLexer \{\
+//public:\
+// All previously global variables (g_b..., g_n..., g_str..., lists)\
+    // AND these pointers:\
+//    func_info* pFunc = NULL;\
+//    class_info* pClass = NULL;\
+//    prop_info* pProperty = NULL;\
+//    array_info* pArray = NULL;\
+//   list<param_info> lstParams;\
+    // Declare member variables (previously global)\
+//    const char* version = "0.50rc1";\
+//    const char* date = __DATE__;\
+//    FILE* OUTPUT = NULL; // Make OUTPUT a member\
+//    bool g_bDebugMode = false;\
+//    bool g_bComments = false;\
+//    bool g_bParseComments = false;\
+//    bool g_bClassBody = false;\
+//    bool g_bEnums = false;\
+//    bool g_bArray = false;\
+//    bool g_bInterfaceOnly = false;\
+//    bool g_bConvertBody = false;\
+//    bool g_bGenerateSa = false;\
+//    bool g_bNamespace = false;\
+//    bool g_bIgnoreImplementation = false;\
+//    int g_nDirectiveCaller = 0;\
+//    bool g_bParams = false;\
+//    int g_nGeneralCaller = 0;\
+//    int g_nFunctionCaller = 0;\
+//    string g_strTypedef = "";\
+//    string g_strTypedefType = "";\
+//    string g_strTypedefName = "";\
+\
+    // Declare pointers to info structs as members\
+    func_info* pFunc = NULL;\
+    class_info* pClass = NULL;\
+    prop_info* pProperty = NULL;\
+    array_info* pArray = NULL;\
+\
+    // Declare lists as members\
+    list<param_info> lstParams;\
+    list<param_info> g_lstParams;\
+    list<string> g_lstComments;\
+    list<string> g_lstVariables;\
+\
+    // Constructor (important for initializing the base FlexLexer)\
+    //PasDoxFlexLexer(std::istream* in = nullptr, std::ostream* out = nullptr)\
+      //  : FlexLexer(in, out) \{\
+        // Any specific initialization for your members can go here\
+        // e.g., OUTPUT = stdout; // or pass it in constructor\
+   // \}\
+\
+}

@@ -2,25 +2,37 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QSyntaxHighlighter> // Base class for highlighters
-#include <QTabWidget> // NEW: Include QTabWidget for the tabbed interface
-#include <QVector>    // NEW: To manage multiple editor tabs
+#include <QSyntaxHighlighter>
+#include <QTabWidget>
+#include <QVector>
 
-// Forward declarations for custom widgets/classes
+#include <QTreeView>
+#include <QFileSystemModel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QLabel>
+#include <QWidget>
+
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+
+#include <QDir>
+#include <QFileDialog>
+#include <QStandardPaths>
+#include <QDebug>
+
 class LineNumberArea;
-class EditorTabWidget; // NEW: Forward declaration for your custom editor widget
+class EditorTabWidget;
 
-// ADD THESE INCLUDES
 #include "vbsyntaxhighlighter.h"
 #include "cppsyntaxhighlighter.h"
 #include "kaytesyntaxhighlighter.h"
 #include "pascalsyntaxhighlighter.h"
 #include "delphisyntaxhighlighter.h"
-#include "choicemode.h"        // Needed for ChoiceMode::DevelopmentMode in activateMode
-#include "downloadprogressdialog.h" // Needed for DownloadProgressDialog
+#include "choicemode.h"
+#include "downloadprogressdialog.h"
+#include "keyboard.h" // <--- ADD THIS INCLUDE
 
-
-// Include the namespace for Ui::MainWindow
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -33,90 +45,90 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    // REMOVED: enum DevelopmentMode { TextEditor, RAD };
-    // This enum is now solely defined and used via ChoiceMode::DevelopmentMode
-
 protected:
     void resizeEvent(QResizeEvent *event) override;
-    // For LineNumberArea positioning and repainting (now specific to current tab, or moved to EditorTabWidget)
-    // You might move this into EditorTabWidget if lineNumberArea is per-tab.
     void updateLineNumberArea(const QRect &rect, int dy);
-    // NEW: Override closeEvent to handle unsaved changes across tabs
     void closeEvent(QCloseEvent *event) override;
 
 
 private slots:
-    // NEW FILE/OPEN/SAVE actions for the tabbed interface
-    void on_actionNewFile_triggered();   // Connect to a "New File" QAction
-    void on_actionOpenFile_triggered();  // Connect to an "Open File" QAction
-    void on_actionSaveFile_triggered();  // Connect to a "Save" QAction
-    bool on_actionSaveFileAs_triggered(); // Connect to a "Save As" QAction
-    void on_actionCloseTab_triggered();  // Connect to a "Close Tab" QAction
+    void on_actionNewFile_triggered();
+    void handleSaveFileTriggered();
+    bool handleSaveFileAsTriggered();
+    void on_actionCloseTab_triggered();
 
-    // Slot for when a tab's close button (the 'x') is clicked
-    void on_tabWidgetEditor_tabCloseRequested(int index);
+    // Corrected / consolidated declarations:
+    void handleOpenFileTriggered();
+    void on_tabWidgetEditor_tabCloseRequested(int index); // Keep only ONE of these
 
-    // Existing project actions (these might operate on the current tab's content, or project files)
+    void handleTabModificationChanged(bool modified);
+    void handleTabTitleChanged(const QString &title);
+
     void buildProject();
     void runProject();
     void cleanProject();
     void debugProject();
 
     void showAboutDialog();
-
-    // Slot to update LineNumberArea width (might be moved to EditorTabWidget)
     void updateLineNumberAreaWidth(int newBlockCount);
 
-    // Mode selection and download related slots
     void showModeSelectionDialog();
-    // No longer onModeSelected, as the ChoiceMode dialog will call activateMode directly
-    // void onModeSelected(ChoiceMode::DevelopmentMode mode); // This slot can be removed if activateMode is sufficient
-
-    // CHANGED: Parameter type from 'int' to 'ChoiceMode::DevelopmentMode'
     void activateMode(ChoiceMode::DevelopmentMode mode);
-    void handleDownloadDialogFinished(); // New slot to handle dialog completion
+    void handleDownloadDialogFinished();
 
-    // NEW: Slots to update tab title based on modification state or filename changes
     void updateTabTitle(bool modified);
     void updateTabTitleOnRename(const QString &newTitle);
 
+    void handlePathLineEditReturnPressed();
+    void handleListViewDoubleClicked(const QModelIndex &index);
+
+    void saveProjectAs(); // <-- ADD THIS NEW SLOT
+
+    void on_tabWidgetEditor_currentChanged(int index); // You will need a slot for tab changes
+
+    // <--- ADD THIS NEW SLOT DECLARATION for the destroyed signal
+    void onTabClosed(QObject* obj = nullptr); // Or just void onTabClosed(); if you don't need the QObject*
+
+
 private:
     Ui::MainWindow *ui;
-    // QString currentFile; // NO LONGER NEEDED, each tab manages its own file path
 
-    // Syntax highlighters - These should ideally be managed *per EditorTabWidget* now.
-    // If you intend to reuse them, they would be members of EditorTabWidget.
-    // currentHighlighter;
-    // vbHighlighter;
-    // cppHighlighter;
-    // kayteHighlighter;
-    // pascalHighlighter;
-    // delphiHighlighter;
-    // These specific highlighters should likely be moved to EditorTabWidget
+    QTreeView *fileListView;
+    QFileSystemModel *fileSystemModel;
+    QLineEdit *pathLineEdit;
+    QPushButton *browseButton;
 
-    // Line number area - Also should be managed *per EditorTabWidget*
-    // LineNumberArea *lineNumberArea;
+    void setupFileBrowser();
+    void setCurrentPath(const QString &path);
 
-    // Helper to set the active syntax highlighter - Also should be in EditorTabWidget
-    // void setHighlighter(QSyntaxHighlighter *newHighlighter);
-
-    // NEW: List to keep track of all opened EditorTabWidget instances
-    QVector<EditorTabWidget*> openEditorTabs;
-    // NEW: Helper to get the currently active editor tab
     EditorTabWidget* currentEditorTab() const;
-    // NEW: Helper to create a new editor tab (for new file or opening existing)
     void createNewTab(const QString &filePath = QString());
-    // NEW: Helper to save the current tab's file, prompting user if modified
     bool saveCurrentFile();
 
-    // Download Management
     QString defaultDownloadPath;
     QStringList radModeRepos;
     QStringList editorModeRepos;
-    void setupDownloadRepos(); // Helper to populate repo lists
+    void setupDownloadRepos();
 
-    // CHANGED: Type from 'DevelopmentMode' to 'ChoiceMode::DevelopmentMode'
+    QVector<EditorTabWidget*> openEditorTabs; // Already exists
+
+    // ADD THESE NEW MEMBERS to store project-specific settings if they don't exist
+    // These will hold the current project's context
+    QString m_currentProjectFilePath; // Full path to the .xprj file, if a project is loaded/saved
+    QString m_currentProjectName;     // Name of the project (e.g., "MyProject")
+
+    // Placeholders for build commands - initialize these elsewhere or link to your actual settings
+    QString m_buildCommand = "make all"; // Example default
+    QString m_runCommand = "./output_executable"; // Example default
+    QString m_cleanCommand = "make clean"; // Example default
+    QString m_debugCommand = "lldb ./output_executable"; // Example default
+
     ChoiceMode::DevelopmentMode currentDevelopmentMode;
+
+    void populateProjectList();
+
+    KeyboardShortcutsManager *m_keyboardShortcutsManager; // <--- ADD THIS MEMBER
+
 };
 
 #endif // MAINWINDOW_H

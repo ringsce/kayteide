@@ -1,8 +1,13 @@
 #include "mainwindow.h"
-#include "ui_mainwindow.h"
+#include "ui_mainwindow.h" // If you use Qt Designer
 
-// Qt Includes
-#include <QFileDialog>
+// Qt Includes specific to mainwindow.cpp implementation details
+#include <QFileDialog>      // Used for QFileDialog::getExistingDirectory
+#include <QStandardPaths>   // Used for QStandardPaths::homeLocation() or QDir::homePath()
+#include <QDir>             // Used for QDir::exists(), QDir::toNativeSeparators(), etc.
+#include <QDebug>           // Used for qDebug() and qWarning()
+
+// Other Qt includes from your original snippet that you might use in this .cpp file
 #include <QMessageBox>
 #include <QTextStream>
 #include <QFile>
@@ -10,52 +15,61 @@
 #include <QFileInfo>
 #include <QPixmap>
 #include <QTextDocument>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
 #include <QFont>
-#include <QDir>
 #include <QCloseEvent>
-#include <QDebug> // For debugging messages
 
 // Your custom widget and dialog includes
 #include "editortabwidget.h"
 #include "choicemode.h"
 #include "downloadprogressdialog.h"
 
-// This is the ONLY definition of the MainWindow constructor
+#include <QXmlStreamWriter>
+#include "keyboard.h" // Ensure this is included here as well
+
+
+
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , m_keyboardShortcutsManager(new KeyboardShortcutsManager(this)) // Ensure this is initialized early
+
 {
-    ui->setupUi(this); // This line creates ui->centralwidget and its initial layout
+    ui->setupUi(this);  // Initialize UI from mainwindow.ui
+    setWindowTitle(tr("Kayte IDE"));
+    m_keyboardShortcutsManager = new KeyboardShortcutsManager(this); // Or whatever constructor it needs
 
-    setWindowTitle(tr("Kayte IDE")); // Set window title early, using tr() for i18n
 
-    // --- Tab Widget Integration ---
-    // Assuming 'ui->tabWidgetEditor' is the QTabWidget added in mainwindow.ui
-    // And it's set as the central widget of MainWindow.
-    setCentralWidget(ui->tabWidgetEditor); // IMPORTANT: Set the QTabWidget as central widget
+    qDebug() << "DEBUG: MainWindow constructor - ui pointer:" << ui;
+    if (ui) {
+        qDebug() << "DEBUG: MainWindow constructor - ui->tabWidgetEditor pointer:" << ui->tabWidgetEditor;
+    } else {
+        qDebug() << "DEBUG: MainWindow constructor - ui is nullptr!";
+    }
 
-    // Enable the close button on each tab (the 'x')
+
+    // --- Set Central Widget ---
+    // Ensure the tab widget is the central content area of the main window
+    setCentralWidget(ui->tabWidgetEditor); // Only needed if not already set in Qt Designer
+
+    // --- Editor Tabs Setup ---
     ui->tabWidgetEditor->setTabsClosable(true);
-    ui->tabWidgetEditor->setMovable(true); // Allow reordering tabs
+    ui->tabWidgetEditor->setMovable(true);
 
-    // Connect tab close requested signal (the 'x' button on tabs)
     connect(ui->tabWidgetEditor, &QTabWidget::tabCloseRequested,
             this, &MainWindow::on_tabWidgetEditor_tabCloseRequested);
 
-    // Create an initial empty tab on startup
+    // Create an initial empty tab
     createNewTab();
 
-    // --- Global Setup (not tab-specific) ---
-    // Set up default download path (e.g., in user's documents/KayteIDE_Resources)
+    // --- File Paths / Directory Setup ---
     defaultDownloadPath = QDir::homePath() + QDir::separator() + "KayteIDE_Resources";
     QDir().mkpath(defaultDownloadPath); // Ensure the directory exists
 
-    // Populate the lists of repositories
-    setupDownloadRepos(); // Call this once in the constructor
+    // --- Download Repositories Setup ---
+    setupDownloadRepos();
 
-    // --- Actions, Icons, and Connections (for Menu/Toolbar) ---
+    // --- Menu & Toolbar Icons ---
     ui->actionNewFile->setIcon(QIcon::fromTheme("document-new"));
     ui->actionOpen->setIcon(QIcon::fromTheme("document-open"));
     ui->actionSave->setIcon(QIcon::fromTheme("document-save"));
@@ -70,11 +84,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->actionAbout->setIcon(QIcon::fromTheme("help-about"));
 
-    // Connect menu actions to the new tab-aware slots
+    // --- Menu Action Connections ---
     connect(ui->actionNewFile, &QAction::triggered, this, &MainWindow::on_actionNewFile_triggered);
-    connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::on_actionOpenFile_triggered);
-    connect(ui->actionSave, &QAction::triggered, this, &MainWindow::on_actionSaveFile_triggered);
-    connect(ui->actionSave_As, &QAction::triggered, this, &MainWindow::on_actionSaveFileAs_triggered);
+    connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::handleOpenFileTriggered);
+    connect(ui->actionSave, &QAction::triggered, this, &MainWindow::handleSaveFileTriggered); // Or whatever the correct name is
+    connect(ui->actionSave_As, &QAction::triggered, this, &MainWindow::handleSaveFileAsTriggered); // Use your actual function name here
     connect(ui->actionCloseTab, &QAction::triggered, this, &MainWindow::on_actionCloseTab_triggered);
     connect(ui->actionExit, &QAction::triggered, this, &QWidget::close);
 
@@ -84,10 +98,190 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionDebug, &QAction::triggered, this, &MainWindow::debugProject);
 
     connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::showAboutDialog);
+    connect(ui->actionSaveProjectAs, &QAction::triggered, this, &MainWindow::saveProjectAs);
 
-    // Show the mode selection dialog on startup
-    // Using Qt::QueuedConnection to ensure UI is fully set up before dialog appears
-    QMetaObject::invokeMethod(this, &MainWindow::showModeSelectionDialog, Qt::QueuedConnection);
+
+    // --- Mode Selection Dialog ---
+    QMetaObject::invokeMethod(this, "showModeSelectionDialog", Qt::QueuedConnection);
+
+    // Instantiate the shortcut manager
+    m_keyboardShortcutsManager = new KeyboardShortcutsManager(this);
+
+    // Connect standard edit actions from your menu/toolbar to the manager's slots.
+    // Make sure you have QActions named 'actionCut', 'actionCopy', 'actionPaste', 'actionSelectAll'
+    // in your mainwindow.ui file (similar to how you added actionSaveProjectAs).
+    connect(ui->actionCut,       &QAction::triggered, m_keyboardShortcutsManager, &KeyboardShortcutsManager::triggerCut);
+    connect(ui->actionCopy,      &QAction::triggered, m_keyboardShortcutsManager, &KeyboardShortcutsManager::triggerCopy);
+    connect(ui->actionPaste,     &QAction::triggered, m_keyboardShortcutsManager, &KeyboardShortcutsManager::triggerPaste);
+    connect(ui->actionSelectAll, &QAction::triggered, m_keyboardShortcutsManager, &KeyboardShortcutsManager::triggerSelectAll);
+
+    // Connect a slot to handle changes in the active editor tab.
+    // This is crucial to tell the manager which editor to target.
+    connect(ui->tabWidgetEditor, &QTabWidget::currentChanged, this, &MainWindow::on_tabWidgetEditor_currentChanged);
+
+    // Initial setup if a tab is already open (e.g., if you create a default new tab at startup)
+    // If you always start with an empty tab widget, this is not strictly necessary here.
+    // But if you create a new tab on startup, call the handler:
+    // on_tabWidgetEditor_currentChanged(ui->tabWidgetEditor->currentIndex());
+}
+
+// Fix this function name to match the declaration in mainwindow.h
+void MainWindow::handleOpenFileTriggered() // <--- CHANGE THIS LINE
+{
+    QString filePath = QFileDialog::getOpenFileName(this, tr("Open File"), QString(),
+                                                    tr("All Files (*);;Text Files (*.txt);;Source Files (*.cpp *.h *.cxx *.hpp);;Visual Basic (*.vb);;Kayte Files (*.kayte *.kyt);;Pascal Files (*.pas *.pp *.dpr);;Delphi Forms (*.dfm)"));
+    if (filePath.isEmpty()) {
+        return; // User cancelled
+    }
+
+    // Check if the file is already open
+    for (int i = 0; i < ui->tabWidgetEditor->count(); ++i) {
+        EditorTabWidget *existingTab = qobject_cast<EditorTabWidget*>(ui->tabWidgetEditor->widget(i));
+        if (existingTab && existingTab->filePath() == filePath) {
+            ui->tabWidgetEditor->setCurrentIndex(i);
+            return; // File is already open, just switch to its tab
+        }
+    }
+
+    // Create a new tab for the file:
+    EditorTabWidget *newTab = new EditorTabWidget(filePath, ui->tabWidgetEditor);
+
+    if (newTab->loadFile(filePath)) { // Ensure loadFile handles errors and returns bool
+        int tabIndex = ui->tabWidgetEditor->addTab(newTab, QFileInfo(filePath).fileName());
+        ui->tabWidgetEditor->setCurrentIndex(tabIndex);
+
+        // Connect modificationChanged and titleChanged signals from the new tab
+        connect(newTab, &EditorTabWidget::modificationChanged, this, &MainWindow::updateTabTitle);
+        connect(newTab, &EditorTabWidget::titleChanged, this, &MainWindow::updateTabTitleOnRename); // Use updateTabTitleOnRename
+
+        // Connect for closing tab
+        connect(newTab, &EditorTabWidget::destroyed, this, &MainWindow::onTabClosed); // Ensure this signal/slot exists
+    } else {
+        newTab->deleteLater(); // Clean up if file failed to load
+    }
+}
+
+// In src/mainwindow.cpp, inside MainWindow::on_tabWidgetEditor_currentChanged(int index)
+
+void MainWindow::on_tabWidgetEditor_currentChanged(int index)
+{
+    EditorTabWidget *currentTab = qobject_cast<EditorTabWidget*>(ui->tabWidgetEditor->widget(index));
+    if (currentTab) {
+        // Ensure EditorTabWidget::getPlainTextEdit() returns a QPlainTextEdit*
+        m_keyboardShortcutsManager->setTargetEditor(currentTab->getPlainTextEdit());
+    } else {
+        m_keyboardShortcutsManager->setTargetEditor(nullptr); // No editor tab is active
+    }
+}
+
+// And in your MainWindow constructor, if you have a default tab created:
+// Example (adjust based on your actual initial tab creation logic):
+// if (ui->tabWidgetEditor->count() > 0) {
+//     on_tabWidgetEditor_currentChanged(ui->tabWidgetEditor->currentIndex());
+// }
+
+// --- IMPORTANT NOTE FOR EDITOR TAB WIDGET ---
+// In your EditorTabWidget class (editortabwidget.h and editortabwidget.cpp),
+// you will need a public getter method to return a pointer to the
+// QPlainTextEdit (or QTextEdit) that it contains.
+//
+// Example in editortabwidget.h:
+// class EditorTabWidget : public QWidget {
+//     Q_OBJECT
+// public:
+//     // ... constructor etc. ...
+//     QPlainTextEdit* getPlainTextEdit() const { return m_editor; } // Assuming m_editor is your QPlainTextEdit*
+//     // OR:
+//     // QTextEdit* getTextEdit() const { return m_editor; }
+// private:
+//     QPlainTextEdit* m_editor; // Your actual text editor widget
+// };
+
+void MainWindow::setupFileBrowser()
+{
+    // --- 1. Create the QFileSystemModel ---
+    fileSystemModel = new QFileSystemModel(this);
+    fileSystemModel->setFilter(QDir::NoDotAndDotDot | QDir::AllEntries); // Exclude . and ..
+    fileSystemModel->setRootPath(QDir::homePath()); // Start the model at user's home dir
+
+    // --- 2. Create the QListView (or QTreeView) ---
+    // Using QTreeView is generally better for file Browse
+    QTreeView *fileTreeView = new QTreeView(this); // Let's use QTreeView instead of QListView
+    fileTreeView->setModel(fileSystemModel);
+
+    // Optional: Hide columns you don't need (QTreeView has multiple columns by default)
+    fileTreeView->hideColumn(1); // Hide Size column
+    fileTreeView->hideColumn(2); // Hide Type column
+    fileTreeView->hideColumn(3); // Hide Date Modified column
+    // Or, keep them for a detailed list view!
+
+    // In your setupFileBrowser() function (in mainwindow.cpp)
+    // Find the connect call related to pathLineEdit:
+    // connect(pathLineEdit, &QLineEdit::returnPressed, this, &MainWindow::on_pathLineEdit_returnPressed);
+    // Change it to:
+    // --- 3. Path Line Edit ---
+    pathLineEdit = new QLineEdit(this);
+    connect(pathLineEdit, &QLineEdit::returnPressed, this, &MainWindow::handlePathLineEditReturnPressed); // <--- ENSURE THIS IS THE NAME
+
+    // Optional: Browse button for a folder dialog
+    browseButton = new QPushButton("Browse...", this);
+    connect(browseButton, &QPushButton::clicked, [this]() {
+        QString dir = QFileDialog::getExistingDirectory(this, "Open Directory",
+                                                        pathLineEdit->text(),
+                                                        QFileDialog::ShowDirsOnly
+                                                        | QFileDialog::DontResolveSymlinks);
+        if (!dir.isEmpty()) {
+            setCurrentPath(dir);
+        }
+    });
+
+    // --- 4. Layout for your window ---
+    QWidget *centralWidget = new QWidget(this);
+    QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
+
+    QHBoxLayout *pathLayout = new QHBoxLayout();
+    pathLayout->addWidget(new QLabel("Path:", this));
+    pathLayout->addWidget(pathLineEdit);
+    pathLayout->addWidget(browseButton);
+
+    mainLayout->addLayout(pathLayout);
+    mainLayout->addWidget(fileTreeView); // Add the tree view
+
+    setCentralWidget(centralWidget);
+
+    // Store the tree view in the fileListView pointer for consistency
+    // If you explicitly wanted a QListView, you'd use that here and
+    // it wouldn't show columns other than name.
+    fileListView = fileTreeView; // Point to the QTreeView
+}
+
+void MainWindow::setCurrentPath(const QString &path)
+{
+    QDir dir(path);
+    if (dir.exists()) {
+        pathLineEdit->setText(QDir::toNativeSeparators(path));
+        // Set the root path for the model to the current directory
+        fileListView->setRootIndex(fileSystemModel->setRootPath(path));
+    } else {
+        qWarning() << "Path does not exist:" << path;
+    }
+}
+
+void MainWindow::handlePathLineEditReturnPressed() // <-- This is the correct definition name
+{
+    // Your existing code for handling return pressed on pathLineEdit goes here.
+    // For example, it might look something like this:
+    QString newPath = pathLineEdit->text();
+    QDir dir(newPath);
+
+    if (dir.exists()) {
+        setCurrentPath(newPath);
+    } else {
+        QMessageBox::warning(this, tr("Path Not Found"),
+                             tr("The path '%1' does not exist.").arg(newPath));
+        // Optionally revert the text to the current valid path if the new one is invalid
+        pathLineEdit->setText(fileSystemModel->rootPath());
+    }
 }
 
 // Ensure the destructor is also defined only once
@@ -106,6 +300,21 @@ EditorTabWidget* MainWindow::currentEditorTab() const
     return qobject_cast<EditorTabWidget*>(ui->tabWidgetEditor->currentWidget());
 }
 
+// Implement the new slot
+void MainWindow::onTabClosed(QObject* obj)
+{
+    // This slot is called when an EditorTabWidget object is destroyed.
+    // The QTabWidget typically handles removing the tab and deleting the widget.
+    // You might use this for additional cleanup, like removing it from your openEditorTabs vector.
+    // Example:
+    EditorTabWidget* destroyedTab = qobject_cast<EditorTabWidget*>(obj);
+    if (destroyedTab) {
+        qDebug() << "EditorTabWidget destroyed:" << destroyedTab->filePath();
+        // If you're manually managing openEditorTabs, you might remove it here:
+        // openEditorTabs.removeOne(destroyedTab);
+    }
+}
+
 void MainWindow::createNewTab(const QString &filePath)
 {
     // If opening a new, untitled file, check if the current tab is an unsaved "Untitled" file.
@@ -120,7 +329,8 @@ void MainWindow::createNewTab(const QString &filePath)
         }
     }
 
-    EditorTabWidget *editorTab = new EditorTabWidget(this); // 'this' (MainWindow) is parent
+    // <--- CORRECTED THIS LINE: Pass filePath as the first argument and ui->tabWidgetEditor as the parent
+    EditorTabWidget *editorTab = new EditorTabWidget(filePath, ui->tabWidgetEditor);
     openEditorTabs.append(editorTab); // Keep track of it in our vector
 
     // Connect modification changed signal to update tab title (e.g., add/remove '*')
@@ -153,8 +363,10 @@ void MainWindow::createNewTab(const QString &filePath)
     // For a new, empty tab, mark it as modified to trigger a save prompt on close
     if (filePath.isEmpty()) {
         editorTab->setModified(true); // New empty tab is considered modified
-        updateTabTitle(true); // Manually call to set initial (modified) title
+        updateTabTitle(true); // Manually call to set initial (modified) title, this will update based on current tab index
     }
+    // Set keyboard manager target for the newly created tab
+    m_keyboardShortcutsManager->setTargetEditor(editorTab->getPlainTextEdit());
 }
 
 bool MainWindow::saveCurrentFile()
@@ -176,7 +388,7 @@ bool MainWindow::saveCurrentFile()
 
     if (ret == QMessageBox::Save) {
         if (editorTab->filePath().isEmpty()) {
-            return on_actionSaveFileAs_triggered(); // Call Save As for new files
+            return handleSaveFileAsTriggered(); // ***FIXED: CALL NEW SLOT NAME HERE***
         } else {
             return editorTab->saveFile(editorTab->filePath()); // Save to existing path
         }
@@ -209,30 +421,18 @@ void MainWindow::on_actionNewFile_triggered()
     createNewTab();
 }
 
-void MainWindow::on_actionOpenFile_triggered()
-{
-    QString filePath = QFileDialog::getOpenFileName(this, tr("Open File"), QString(), tr("Text Files (*.txt *.vb *.cpp *.h *.kayte *.kyt *.pas *.pp *.dpr);;All Files (*.*)"));
-    if (filePath.isEmpty()) return;
 
-    // Check if the file is already open in another tab
-    for (EditorTabWidget *tab : openEditorTabs) {
-        if (!tab->filePath().isEmpty() && QFileInfo(tab->filePath()) == QFileInfo(filePath)) {
-            ui->tabWidgetEditor->setCurrentWidget(tab); // Switch to existing tab
-            return;
-        }
-    }
-
-    createNewTab(filePath); // Open the file in a new tab
-}
-
-void MainWindow::on_actionSaveFile_triggered()
+// Change the function definition line from:
+// void MainWindow::on_actionSaveFile_triggered()
+// TO:
+void MainWindow::handleSaveFileTriggered() // <--- FIX IS HERE: Renamed function definition
 {
     EditorTabWidget *editorTab = currentEditorTab();
     if (!editorTab) return; // No active tab
 
     if (editorTab->filePath().isEmpty()) {
         // If no path, treat as Save As
-        on_actionSaveFileAs_triggered();
+        handleSaveFileAsTriggered(); // <--- FIX IS HERE: Call the renamed 'Save As' slot
     } else {
         editorTab->saveFile(editorTab->filePath());
         // `editorTab->saveFile` should emit modificationChanged(false) which updates the title.
@@ -240,7 +440,151 @@ void MainWindow::on_actionSaveFile_triggered()
     }
 }
 
-bool MainWindow::on_actionSaveFileAs_triggered()
+void MainWindow::handleTabModificationChanged(bool modified)
+{
+    // This slot is called when a tab's modification status changes.
+    // You'll likely want to update the tab's title to show an asterisk (*) for modified files.
+    // Example (you might have similar logic in updateTabTitle):
+    EditorTabWidget *editorTab = qobject_cast<EditorTabWidget*>(sender());
+    if (editorTab) {
+        int index = ui->tabWidgetEditor->indexOf(editorTab);
+        if (index != -1) {
+            QString title = QFileInfo(editorTab->filePath()).fileName();
+            if (modified) {
+                title += "*";
+            }
+            ui->tabWidgetEditor->setTabText(index, title);
+        }
+    }
+    // You might also want to enable/disable the Save action here
+    ui->actionSave->setEnabled(modified);
+    ui->actionSave_As->setEnabled(modified); // Save As usually enabled if anything is open
+}
+
+void MainWindow::handleTabTitleChanged(const QString &newTitle)
+{
+    // This slot is called when a tab's internal title (e.g., file path) changes.
+    // You'll update the tab's displayed text.
+    EditorTabWidget *editorTab = qobject_cast<EditorTabWidget*>(sender());
+    if (editorTab) {
+        int index = ui->tabWidgetEditor->indexOf(editorTab);
+        if (index != -1) {
+            ui->tabWidgetEditor->setTabText(index, newTitle);
+        }
+    }
+}
+
+void MainWindow::saveProjectAs()
+{
+    // 1. Get the desired save file path from the user
+    QString initialPath = m_currentProjectFilePath.isEmpty() ?
+                          QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) :
+                          QFileInfo(m_currentProjectFilePath).absolutePath();
+
+    QString saveFilePath = QFileDialog::getSaveFileName(this,
+                                                        tr("Save Project As"),
+                                                        initialPath,
+                                                        tr("Kayte IDE Project Files (*.xprj);;All Files (*.*)"));
+
+    if (saveFilePath.isEmpty()) {
+        return; // User cancelled the dialog
+    }
+
+    // Ensure the file has the .xprj extension
+    if (!saveFilePath.endsWith(".xprj", Qt::CaseInsensitive)) {
+        saveFilePath += ".xprj";
+    }
+
+    // Update current project path and name based on the chosen file
+    QFileInfo fileInfo(saveFilePath);
+    m_currentProjectFilePath = saveFilePath;
+    m_currentProjectName = fileInfo.baseName(); // Name of the file without extension
+
+    // 2. Open the file for writing
+    QFile file(saveFilePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::critical(this, tr("Error Saving Project"),
+                               tr("Cannot write file: %1\n%2").arg(saveFilePath, file.errorString()));
+        return;
+    }
+
+    // 3. Set up the XML writer
+    QXmlStreamWriter xmlWriter(&file);
+    xmlWriter.setAutoFormatting(true);
+    xmlWriter.setAutoFormattingIndent(4);
+    xmlWriter.writeStartDocument(); // Writes the XML declaration (e.g., <?xml version="1.0"?>)
+
+    // 4. Write the root element
+    xmlWriter.writeStartElement("KayteIDEProject");
+
+    // 5. Write basic project information
+    xmlWriter.writeTextElement("ProjectName", m_currentProjectName);
+    xmlWriter.writeTextElement("ProjectPath", fileInfo.absoluteDir().path()); // The directory where the .xprj is saved
+
+    // Convert DevelopmentMode enum to string for saving
+    QString modeString;
+    switch (currentDevelopmentMode) {
+        // Corrected lines:
+    case ChoiceMode::TextEditor: // Use the correct enum name from choicemode.h
+        modeString = "Editor";   // The string representation you want to save
+        break;
+    case ChoiceMode::RAD:        // Use the correct enum name from choicemode.h
+        modeString = "RAD";      // The string representation you want to save
+        break;
+    default:
+        modeString = "Unknown"; // Fallback for any unhandled modes
+        break;
+    }
+    xmlWriter.writeTextElement("DevelopmentMode", modeString);
+    // 6. Write Build Settings
+    xmlWriter.writeStartElement("BuildSettings");
+    xmlWriter.writeTextElement("BuildCommand", m_buildCommand);
+    xmlWriter.writeTextElement("RunCommand", m_runCommand);
+    xmlWriter.writeTextElement("CleanCommand", m_cleanCommand);
+    xmlWriter.writeTextElement("DebugCommand", m_debugCommand);
+    xmlWriter.writeEndElement(); // </BuildSettings>
+
+    // 7. Write currently open files
+    xmlWriter.writeStartElement("OpenFiles");
+    for (EditorTabWidget *tab : openEditorTabs) {
+        // Only save files that have a path (i.e., not a new, unsaved tab)
+        if (!tab->filePath().isEmpty()) {
+            xmlWriter.writeTextElement("File", tab->filePath());
+        }
+    }
+    xmlWriter.writeEndElement(); // </OpenFiles>
+
+    // 8. End the root element and the document
+    xmlWriter.writeEndElement(); // </KayteIDEProject>
+    xmlWriter.writeEndDocument();
+
+    // 9. Close the file
+    file.close();
+
+    statusBar()->showMessage(tr("Project \"%1\" saved successfully.").arg(m_currentProjectName), 3000);
+    qDebug() << "Project saved to:" << m_currentProjectFilePath;
+}
+// In mainwindow.cpp
+void MainWindow::handleListViewDoubleClicked(const QModelIndex &index) // <-- FIX IS HERE: Renamed to match declaration
+{
+    // ... your existing code ...
+    // This function should contain the logic you had for handling double-clicks
+    // on the file list view. For example:
+    if (!index.isValid()) {
+        return;
+    }
+
+    QFileInfo fileInfo = fileSystemModel->fileInfo(index);
+    if (fileInfo.isDir()) {
+        setCurrentPath(fileInfo.absoluteFilePath());
+    } else {
+        // If it's a file, open it in a new editor tab
+        createNewTab(fileInfo.absoluteFilePath());
+    }
+}
+
+
+bool MainWindow::handleSaveFileAsTriggered() // <--- FIX IS HERE
 {
     EditorTabWidget *editorTab = currentEditorTab();
     if (!editorTab) return false; // No active tab
@@ -256,6 +600,7 @@ bool MainWindow::on_actionSaveFileAs_triggered()
     }
     return saved;
 }
+
 
 void MainWindow::on_actionCloseTab_triggered()
 {
@@ -458,13 +803,35 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     // No specific custom resize logic needed unless you add non-tab-related elements.
 }
 
+// diownload repos
+// In mainwindow.cpp
 void MainWindow::setupDownloadRepos()
 {
-    radModeRepos << "[https://github.com/ringsce/kayte-lang.git;kayte_lang;main](https://github.com/ringsce/kayte-lang.git;kayte_lang;main)"
-                 << "[https://github.com/KayteIDE/rad-templates.git;rad_templates](https://github.com/KayteIDE/rad-templates.git;rad_templates)"
-                 << "[https://github.com/KayteIDE/samples.git;rad_samples;dev](https://github.com/KayteIDE/samples.git;rad_samples;dev)"
-                 << "[https://github.com/KayteIDE/documentation.git;docs](https://github.com/KayteIDE/documentation.git;docs)"
-                 << "[https://github.com/KayteIDE/tutorials.git;tutorials](https://github.com/KayteIDE/tutorials.git;tutorials)";
+    // CORRECTED FORMAT: "GIT_URL;LOCAL_DIR_NAME;BRANCH_NAME"
+    // (BRANCH_NAME is optional. If not provided, 'main' or default branch assumed by Git)
 
-    editorModeRepos << "[https://github.com/KayteIDE/editor-addons.git;editor_addons](https://github.com/KayteIDE/editor-addons.git;editor_addons)";
+    radModeRepos << "https://github.com/ringsce/kayte-lang.git;kayte_lang;main"
+                 << "https://github.com/ringsce/rad-templates.git;rad_templates"
+                 << "https://github.com/ringsce/samples.git;rad_samples;dev"
+                 << "https://github.com/ringsce/documentation.git;docs"
+                 << "https://github.com/ringsce/tutorials.git;tutorials";
+
+    editorModeRepos << "https://github.com/ringsce/editor_addons.git;editor_addons";
 }
+
+
+// NEW: Implementation for populateProjectList
+void MainWindow::populateProjectList()
+{
+    // Clear any existing items
+    ui->projectListWidget->clear();
+
+    // Add some dummy project items for demonstration
+    ui->projectListWidget->addItem(tr("My First RAD Project"));
+    ui->projectListWidget->addItem(tr("Sample Game Engine"));
+    ui->projectListWidget->addItem(tr("Business Application Prototype"));
+    ui->projectListWidget->addItem(tr("Another Cool Project"));
+
+    // You could later load these from a configuration file or scan a project directory
+}
+

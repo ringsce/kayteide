@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=KayteIDE
+GenericName=Integrated Development Environment
+Comment=A simple IDE for Pascal, C++, and more.
+Exec=kayteide
+Icon=kayte
+Terminal=false
+Categories=Development;IDE;
+Keywords=IDE;Pascal;Delphi;C++;Editor;Programming;
+StartupNotify=true

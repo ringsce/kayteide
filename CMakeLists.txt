@@ -263,29 +263,38 @@ if (APPLE AND NOT ANDROID)
     )
 endif()
 
-# --- CPack Configuration for Debian Package ---
+# --- CPack Configuration for Debian and RPM Packages ---
 # Only configure for non-Android and Linux builds
 if (NOT ANDROID AND UNIX AND NOT APPLE)
-    set(CPACK_GENERATOR "DEB")
 
-    # Set package information
-    set(CPACK_PACKAGE_NAME "kayteide")
-    set(CPACK_PACKAGE_VERSION "0.1.0")
-    set(CPACK_PACKAGE_DESCRIPTION "KayteIDE, a simple IDE for Pascal and C++")
-    set(CPACK_PACKAGE_VENDOR "Your Name or Company")
-    set(CPACK_PACKAGE_CONTACT "your.email@example.com")
-    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://www.yourproject.com")
-
-    # Specify the installation directories for the package
     # We will install the main executable to /usr/bin
-    # This requires an "install" command
     install(TARGETS ${PROJECT_NAME}
             RUNTIME DESTINATION bin)
 
-    # You can also install other files like icons, desktop entries, etc.
-    # Example:
-    # install(FILES "${CMAKE_SOURCE_DIR}/resources/kayte.png"
-    #         DESTINATION "share/icons/hicolor/128x128/apps")
+    # Add an install command for a desktop file and icon
+    install(FILES "${CMAKE_SOURCE_DIR}/resources/kayteide.desktop" DESTINATION "share/applications")
+    install(FILES "${CMAKE_SOURCE_DIR}/resources/kayte.png" DESTINATION "share/icons")
 
+    # --- Debian Package Configuration ---
+    set(CPACK_GENERATOR "DEB")
+    set(CPACK_PACKAGE_NAME "kayteide")
+    set(CPACK_PACKAGE_VERSION "0.1.0")
+    set(CPACK_PACKAGE_DESCRIPTION "KayteIDE, a simple IDE for Pascal and C++")
+    set(CPACK_PACKAGE_VENDOR "Pedro Dias Vicente")
+    set(CPACK_PACKAGE_CONTACT "pdvicente@gleentech.com")
+    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://www.ringscejs.gleentech.com")
+
+    # --- RPM Package Configuration ---
+    # Set CPack generator to include RPM
+    set(CPACK_GENERATOR "DEB;RPM")
+    set(CPACK_RPM_PACKAGE_NAME "kayteide")
+    set(CPACK_RPM_PACKAGE_VERSION "0.1.0")
+    set(CPACK_RPM_PACKAGE_SUMMARY "A simple IDE for Pascal and C++")
+    set(CPACK_RPM_PACKAGE_GROUP "Development/Tools") # Common RPM group for development tools
+    set(CPACK_RPM_PACKAGE_VENDOR "Kreatyve Designs")
+    set(CPACK_RPM_PACKAGE_LICENSE "GPLv3")
+    set(CPACK_RPM_PACKAGE_URL "https://www.ringscejs.gleentech.com")
+
+    # Include CPack
     include(CPack)
 endif()

@@ -1,6 +1,0 @@
-/Users/pedro/Projects/kayteide/build/CMakeFiles/docs.dir
-/Users/pedro/Projects/kayteide/build/CMakeFiles/KayteIDE.dir
-/Users/pedro/Projects/kayteide/build/CMakeFiles/edit_cache.dir
-/Users/pedro/Projects/kayteide/build/CMakeFiles/rebuild_cache.dir
-/Users/pedro/Projects/kayteide/build/CMakeFiles/KayteIDE_autogen_timestamp_deps.dir
-/Users/pedro/Projects/kayteide/build/CMakeFiles/KayteIDE_autogen.dir

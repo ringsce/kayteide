@@ -20,6 +20,7 @@
 #include <QFileDialog>
 #include <QStandardPaths>
 #include <QDebug>
+#include "../plugins/project/newprojectdialog.h" // Add this include
 
 class LineNumberArea;
 class EditorTabWidget;
@@ -88,6 +89,8 @@ private slots:
 
     // <--- ADD THIS NEW SLOT DECLARATION for the destroyed signal
     void onTabClosed(QObject* obj = nullptr); // Or just void onTabClosed(); if you don't need the QObject*
+
+    void on_actionNewProject_triggered(); // Add this new slot
 
 
 private:

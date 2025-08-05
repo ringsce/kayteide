@@ -7,7 +7,6 @@
       <Unit>
         <Filename Value="components.lpr"/>
         <IsPartOfProject Value="True"/>
-        <IsVisibleTab Value="True"/>
         <TopLine Value="163"/>
         <CursorPos X="3" Y="185"/>
         <UsageCount Value="67"/>
@@ -17,8 +16,9 @@
         <Filename Value="forms.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="Forms"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
-        <TopLine Value="32"/>
+        <TopLine Value="31"/>
         <CursorPos Y="65"/>
         <UsageCount Value="37"/>
         <Loaded Value="True"/>

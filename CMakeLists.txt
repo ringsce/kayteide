@@ -13,9 +13,20 @@ if (APPLE)
             set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "Build architectures for macOS")
         endif()
     endif()
+    # Explicitly disable Xcode and Homebrew paths on non-Apple systems
+    message(STATUS "Configuring for macOS. Xcode and Homebrew paths are enabled.")
 
 elseif (UNIX AND NOT APPLE)
     message(STATUS "Building for Linux on ${CMAKE_SYSTEM_PROCESSOR} architecture.")
+    message(STATUS "Xcode and Homebrew paths are disabled.")
+    # On Linux, CMake's find_package and compiler detection will automatically
+    # use the system's default paths, which would include Debian/Fedora's
+    # standard library and include locations (e.g., /usr/lib, /usr/include).
+    # No manual path manipulation is typically needed.
+
+    # You can add specific include paths here if needed, e.g.,
+    # target_include_directories(${PROJECT_NAME} PRIVATE /usr/include)
+
 endif()
 # ----------------------------------
 
@@ -32,6 +43,8 @@ set(CMAKE_AUTOMOC ON) # Processes Q_OBJECT macros in headers
 set(CMAKE_AUTOUIC ON) # Processes .ui files to generate ui_*.h
 set(CMAKE_AUTORCC ON) # Processes .qrc files to embed resources
 
+# Add the subdirectory containing the pas2dox project
+#add_subdirectory(plugins/pas2dox)
 # ------------------------------------------------------------------------
 # List every source/header/ui file once
 # CMake's AUTOUIC/AUTOMOC will handle the dependencies
@@ -77,11 +90,14 @@ set(PROJECT_FORMS
         src/mainwindow.ui
         src/downloadprogressdialog.ui
         src/choicemode.ui
+        plugins/project/newprojectdialog.ui
 )
 
 set(PROJECT_RESOURCES
         resources/i18n.qrc
         resources/main_resources.qrc
+        plugins/project/newprojectdialog.h
+        plugins/project/newprojectdialog.cpp
 
 )
 
@@ -218,9 +234,9 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 # Ensure KayteIDE can find the headers from pas2dox plugin
-target_include_directories(${PROJECT_NAME} PRIVATE
-        ${CMAKE_SOURCE_DIR}/plugins/pas2dox # To find pasdoxflexlexer.h and globals.h
-)
+#target_include_directories(${PROJECT_NAME} PRIVATE
+#        ${CMAKE_SOURCE_DIR}/plugins/pas2dox # To find pasdoxflexlexer.h and globals.h
+#)
 
 
 # Add compile definitions, typically for debug configurations
@@ -280,21 +296,20 @@ if (NOT ANDROID AND UNIX AND NOT APPLE)
     set(CPACK_PACKAGE_NAME "kayteide")
     set(CPACK_PACKAGE_VERSION "0.1.0")
     set(CPACK_PACKAGE_DESCRIPTION "KayteIDE, a simple IDE for Pascal and C++")
-    set(CPACK_PACKAGE_VENDOR "Pedro Dias Vicente")
-    set(CPACK_PACKAGE_CONTACT "pdvicente@gleentech.com")
-    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://www.ringscejs.gleentech.com")
-    set (CPACK_DEBIAN_PACKAGE_GROUP "Programming")
-    
+    set(CPACK_PACKAGE_VENDOR "Your Name or Company")
+    set(CPACK_PACKAGE_CONTACT "your.email@example.com")
+    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://www.yourproject.com")
+
     # --- RPM Package Configuration ---
     # Set CPack generator to include RPM
-    set(CPACK_GENERATOR "DEB;RPM")
+    set(CPACK_GENERATOR "${CPACK_GENERATOR};RPM")
     set(CPACK_RPM_PACKAGE_NAME "kayteide")
     set(CPACK_RPM_PACKAGE_VERSION "0.1.0")
     set(CPACK_RPM_PACKAGE_SUMMARY "A simple IDE for Pascal and C++")
     set(CPACK_RPM_PACKAGE_GROUP "Development/Tools") # Common RPM group for development tools
-    set(CPACK_RPM_PACKAGE_VENDOR "Kreatyve Designs")
-    set(CPACK_RPM_PACKAGE_LICENSE "GPLv3")
-    set(CPACK_RPM_PACKAGE_URL "https://www.ringscejs.gleentech.com")
+    set(CPACK_RPM_PACKAGE_VENDOR "Your Name or Company")
+    set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+    set(CPACK_RPM_PACKAGE_URL "https://www.yourproject.com")
 
     # Include CPack
     include(CPack)

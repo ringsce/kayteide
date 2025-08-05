@@ -7,28 +7,18 @@
       <Unit>
         <Filename Value="components.lpr"/>
         <IsPartOfProject Value="True"/>
-        <TopLine Value="163"/>
         <CursorPos X="3" Y="185"/>
-        <UsageCount Value="67"/>
+        <UsageCount Value="99"/>
         <Loaded Value="True"/>
       </Unit>
       <Unit>
         <Filename Value="forms.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="Forms"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
-        <TopLine Value="31"/>
+        <TopLine Value="32"/>
         <CursorPos Y="65"/>
-        <UsageCount Value="37"/>
-        <Loaded Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="InputBox.pas"/>
-        <EditorIndex Value="2"/>
-        <TopLine Value="10"/>
-        <CursorPos Y="43"/>
-        <UsageCount Value="34"/>
+        <UsageCount Value="69"/>
         <Loaded Value="True"/>
       </Unit>
       <Unit>
@@ -36,17 +26,26 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="MessageBox"/>
         <EditorIndex Value="3"/>
-        <CursorPos X="30" Y="15"/>
-        <UsageCount Value="37"/>
+        <CursorPos X="82"/>
+        <UsageCount Value="69"/>
         <Loaded Value="True"/>
       </Unit>
       <Unit>
         <Filename Value="listview.pas"/>
         <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="4"/>
         <TopLine Value="85"/>
         <CursorPos Y="118"/>
-        <UsageCount Value="23"/>
+        <UsageCount Value="55"/>
+        <Loaded Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="InputBox.pas"/>
+        <EditorIndex Value="2"/>
+        <TopLine Value="10"/>
+        <CursorPos Y="43"/>
+        <UsageCount Value="50"/>
         <Loaded Value="True"/>
       </Unit>
     </Units>

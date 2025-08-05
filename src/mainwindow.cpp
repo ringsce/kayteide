@@ -32,13 +32,10 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , m_keyboardShortcutsManager(new KeyboardShortcutsManager(this)) // Ensure this is initialized early
-
+    , m_keyboardShortcutsManager(new KeyboardShortcutsManager(this)) // CORRECT: Only initialize here
 {
     ui->setupUi(this);  // Initialize UI from mainwindow.ui
     setWindowTitle(tr("Kayte IDE"));
-    m_keyboardShortcutsManager = new KeyboardShortcutsManager(this); // Or whatever constructor it needs
-
 
     qDebug() << "DEBUG: MainWindow constructor - ui pointer:" << ui;
     if (ui) {
@@ -47,10 +44,8 @@ MainWindow::MainWindow(QWidget *parent)
         qDebug() << "DEBUG: MainWindow constructor - ui is nullptr!";
     }
 
-
     // --- Set Central Widget ---
-    // Ensure the tab widget is the central content area of the main window
-    setCentralWidget(ui->tabWidgetEditor); // Only needed if not already set in Qt Designer
+    setCentralWidget(ui->tabWidgetEditor);
 
     // --- Editor Tabs Setup ---
     ui->tabWidgetEditor->setTabsClosable(true);
@@ -87,8 +82,8 @@ MainWindow::MainWindow(QWidget *parent)
     // --- Menu Action Connections ---
     connect(ui->actionNewFile, &QAction::triggered, this, &MainWindow::on_actionNewFile_triggered);
     connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::handleOpenFileTriggered);
-    connect(ui->actionSave, &QAction::triggered, this, &MainWindow::handleSaveFileTriggered); // Or whatever the correct name is
-    connect(ui->actionSave_As, &QAction::triggered, this, &MainWindow::handleSaveFileAsTriggered); // Use your actual function name here
+    connect(ui->actionSave, &QAction::triggered, this, &MainWindow::handleSaveFileTriggered);
+    connect(ui->actionSave_As, &QAction::triggered, this, &MainWindow::handleSaveFileAsTriggered);
     connect(ui->actionCloseTab, &QAction::triggered, this, &MainWindow::on_actionCloseTab_triggered);
     connect(ui->actionExit, &QAction::triggered, this, &QWidget::close);
 
@@ -100,31 +95,36 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::showAboutDialog);
     connect(ui->actionSaveProjectAs, &QAction::triggered, this, &MainWindow::saveProjectAs);
 
+    // This connection now works as requested
+    connect(ui->actionNewProject, &QAction::triggered, this, &MainWindow::on_actionNewProject_triggered);
 
     // --- Mode Selection Dialog ---
     QMetaObject::invokeMethod(this, "showModeSelectionDialog", Qt::QueuedConnection);
 
-    // Instantiate the shortcut manager
-    m_keyboardShortcutsManager = new KeyboardShortcutsManager(this);
-
     // Connect standard edit actions from your menu/toolbar to the manager's slots.
-    // Make sure you have QActions named 'actionCut', 'actionCopy', 'actionPaste', 'actionSelectAll'
-    // in your mainwindow.ui file (similar to how you added actionSaveProjectAs).
     connect(ui->actionCut,       &QAction::triggered, m_keyboardShortcutsManager, &KeyboardShortcutsManager::triggerCut);
     connect(ui->actionCopy,      &QAction::triggered, m_keyboardShortcutsManager, &KeyboardShortcutsManager::triggerCopy);
     connect(ui->actionPaste,     &QAction::triggered, m_keyboardShortcutsManager, &KeyboardShortcutsManager::triggerPaste);
     connect(ui->actionSelectAll, &QAction::triggered, m_keyboardShortcutsManager, &KeyboardShortcutsManager::triggerSelectAll);
 
     // Connect a slot to handle changes in the active editor tab.
-    // This is crucial to tell the manager which editor to target.
     connect(ui->tabWidgetEditor, &QTabWidget::currentChanged, this, &MainWindow::on_tabWidgetEditor_currentChanged);
-
-    // Initial setup if a tab is already open (e.g., if you create a default new tab at startup)
-    // If you always start with an empty tab widget, this is not strictly necessary here.
-    // But if you create a new tab on startup, call the handler:
-    // on_tabWidgetEditor_currentChanged(ui->tabWidgetEditor->currentIndex());
 }
 
+void MainWindow::on_actionNewProject_triggered()
+{
+    NewProjectDialog dialog(this);
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        // TODO: Add your logic here to get the project options from the dialog
+        // and create the new project.
+        // For example:
+        // QString projectName = dialog.getProjectName();
+        // QString projectPath = dialog.getProjectPath();
+        // QString projectType = dialog.getProjectType();
+        // ... then create project files based on the type
+    }
+}
 // Fix this function name to match the declaration in mainwindow.h
 void MainWindow::handleOpenFileTriggered() // <--- CHANGE THIS LINE
 {

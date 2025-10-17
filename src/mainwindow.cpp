@@ -27,8 +27,6 @@
 #include "keyboard.h" // Ensure this is included here as well
 
 
-
-
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -125,6 +123,7 @@ void MainWindow::on_actionNewProject_triggered()
         // ... then create project files based on the type
     }
 }
+
 // Fix this function name to match the declaration in mainwindow.h
 void MainWindow::handleOpenFileTriggered() // <--- CHANGE THIS LINE
 {

@@ -74,10 +74,9 @@ EditorTabWidget::~EditorTabWidget()
     qDebug() << "EditorTabWidget destroyed for file:" << m_filePath;
 }
 
-// Implement file operations using m_editor
-// Note: This loadFile is the one called in the constructor.
-// The other loadFile below should be removed or merged.
 bool EditorTabWidget::loadFile(const QString &filePath) {
+    qDebug() << "EditorTabWidget::loadFile called for:" << filePath;
+
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         m_editor->setPlainText(tr("Could not open file: %1\n%2").arg(filePath, file.errorString()));
@@ -85,13 +84,38 @@ bool EditorTabWidget::loadFile(const QString &filePath) {
         return false;
     }
 
-    m_editor->setPlainText(file.readAll());
+    // Load the file content
+    QString content = file.readAll();
     file.close();
-    m_filePath = filePath;
-    setModified(false); // File is clean after loading
 
-    emit titleChanged(QFileInfo(m_filePath).fileName());
+    qDebug() << "Loaded" << content.length() << "characters from" << filePath;
+
+    // Set the content
+    m_editor->setPlainText(content);
+    m_filePath = filePath;
+
+    // CRITICAL: Clear modified flag AFTER setting text
+    m_editor->document()->setModified(false);
+
+    // Update line number area for the new content
+    if (m_lineNumberArea) {
+        qDebug() << "Updating line number area, block count:" << m_editor->blockCount();
+        m_lineNumberArea->setupConnections();
+        m_lineNumberArea->updateGeometry();
+        m_lineNumberArea->update();
+    } else {
+        qWarning() << "Line number area is null!";
+    }
+
+    // Apply syntax highlighter based on file extension
     applyHighlighterForFile(m_filePath);
+
+    // Emit signals
+    emit titleChanged(QFileInfo(m_filePath).fileName());
+    emit modificationChanged(false);
+
+    qDebug() << "File loaded successfully, modified state:" << m_editor->document()->isModified();
+
     return true;
 }
 
@@ -151,12 +175,27 @@ void EditorTabWidget::applyHighlighterForFile(const QString &filePath)
     }
 }
 
+bool EditorTabWidget::isModified() const
+{
+    return m_editor && m_editor->document() && m_editor->document()->isModified();
+}
+
 void EditorTabWidget::setModified(bool modified)
 {
+    if (!m_editor || !m_editor->document()) {
+        qWarning() << "EditorTabWidget::setModified: Editor or document not available";
+        return;
+    }
+
+    bool currentState = m_editor->document()->isModified();
+
+    qDebug() << "setModified called: current =" << currentState << ", new =" << modified;
+
     // Only update and emit if the modification state actually changes
-    if (m_editor->document()->isModified() != modified) { // <--- Changed m_textEdit to m_editor
-        m_editor->document()->setModified(modified); // <--- Changed m_textEdit to m_editor
+    if (currentState != modified) {
+        m_editor->document()->setModified(modified);
         emit modificationChanged(modified);
+        qDebug() << "Modification state changed to:" << modified;
     }
 }
 
@@ -189,23 +228,33 @@ bool EditorTabWidget::loadFile(const QString &filePath)
 
 bool EditorTabWidget::saveFile(const QString &filePath)
 {
+    qDebug() << "EditorTabWidget::saveFile called for:" << filePath;
+
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
         QMessageBox::critical(this, tr("Error"), tr("Could not save file %1: %2").arg(filePath, file.errorString()));
+        qDebug() << "Save failed:" << file.errorString();
         return false;
     }
 
     QTextStream out(&file);
-    out << m_editor->toPlainText(); // <--- Changed m_textEdit to m_editor
+    out << m_editor->toPlainText();
     file.close();
 
-    m_filePath = filePath;
-    m_editor->document()->setModified(false); // <--- Changed m_textEdit to m_editor
+    // Update file path if it changed (e.g., Save As)
+    if (m_filePath != filePath) {
+        m_filePath = filePath;
+        applyHighlighterForFile(m_filePath);
+        emit titleChanged(QFileInfo(m_filePath).fileName());
+    }
 
-    applyHighlighterForFile(m_filePath);
+    // CRITICAL: Clear modified flag after successful save
+    m_editor->document()->setModified(false);
 
+    // Emit modification state changed
     emit modificationChanged(false);
-    emit titleChanged(QFileInfo(m_filePath).fileName());
+
+    qDebug() << "File saved successfully, modified state:" << m_editor->document()->isModified();
 
     return true;
 }
@@ -252,5 +301,11 @@ void EditorTabWidget::updateLineNumberArea(int /*value*/)
 
 void EditorTabWidget::handleContentsChanged()
 {
-    emit modificationChanged(m_editor->document()->isModified()); // <--- Changed m_textEdit to m_editor
+    if (!m_editor || !m_editor->document()) {
+        return;
+    }
+
+    bool modified = m_editor->document()->isModified();
+    qDebug() << "Content changed, document modified:" << modified;
+    emit modificationChanged(modified);
 }

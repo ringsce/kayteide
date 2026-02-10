@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
 project(KayteIDE LANGUAGES CXX)
 
@@ -98,7 +98,6 @@ set(PROJECT_RESOURCES
         resources/main_resources.qrc
         plugins/project/newprojectdialog.h
         plugins/project/newprojectdialog.cpp
-
 )
 
 # --- Android Configuration (NEW) ---
@@ -223,6 +222,24 @@ if (APPLE AND NOT ANDROID)
             MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/resources/Info.plist"
     )
     set_source_files_properties(resources/kayte.icns PROPERTIES XCODE_EXPLICIT_FILE_TYPE .icns)
+
+    # --- Create tools/sdk/usr/bin directory and copy kayte executable ---
+    add_custom_command(
+            TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E echo "Creating tools/sdk/usr/bin directory in app bundle..."
+            # Create the directory structure inside the .app bundle
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/tools/sdk/usr/bin"
+            # Copy the kayte executable to the tools directory
+            COMMAND ${CMAKE_COMMAND} -E echo "Copying kayte executable to bundle..."
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:${PROJECT_NAME}>"
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/tools/sdk/usr/bin/kayte"
+            # Make it executable
+            COMMAND chmod +x "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/tools/sdk/usr/bin/kayte"
+            COMMENT "Installing kayte executable in app bundle tools directory"
+            VERBATIM
+    )
 endif()
 
 # Link the necessary Qt libraries and pas2dox_lib to your executable

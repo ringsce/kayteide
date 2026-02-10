@@ -9,6 +9,7 @@
 
 // Other Qt includes from your original snippet that you might use in this .cpp file
 #include <QMessageBox>
+#include <QPushButton>
 #include <QTextStream>
 #include <QFile>
 #include <QIcon>
@@ -371,48 +372,99 @@ void MainWindow::createNewTab(const QString &filePath)
 bool MainWindow::saveCurrentFile()
 {
     EditorTabWidget *editorTab = currentEditorTab();
-    if (!editorTab) return true; // No active tab, nothing to save
+    if (!editorTab) {
+        qDebug() << "saveCurrentFile: No active tab";
+        return true; // No active tab, nothing to save
+    }
 
-    if (!editorTab->isModified()) return true; // Not modified, no need to save
+    if (!editorTab->isModified()) {
+        qDebug() << "saveCurrentFile: Tab not modified";
+        return true; // Not modified, no need to save
+    }
 
-    QMessageBox::StandardButton ret;
     QString fileName = QFileInfo(editorTab->filePath()).fileName();
     if (fileName.isEmpty()) {
         fileName = tr("Untitled"); // For new, unsaved files
     }
 
-    ret = QMessageBox::warning(this, tr("Save Changes"),
-                               tr("The document '%1' has been modified.\nDo you want to save your changes?").arg(fileName),
-                               QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+    qDebug() << "saveCurrentFile: Showing dialog for" << fileName;
 
-    if (ret == QMessageBox::Save) {
+    // FIXED: Use explicit QMessageBox with proper parent
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("Unsaved Changes"));
+    msgBox.setText(tr("The document '%1' has been modified.").arg(fileName));
+    msgBox.setInformativeText(tr("Do you want to save your changes?"));
+    msgBox.setIcon(QMessageBox::Warning);
+
+    // Add buttons with explicit roles
+    QPushButton *saveButton = msgBox.addButton(tr("Save"), QMessageBox::AcceptRole);
+    QPushButton *discardButton = msgBox.addButton(tr("Don't Save"), QMessageBox::DestructiveRole);
+    QPushButton *cancelButton = msgBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
+
+    msgBox.setDefaultButton(saveButton);
+    msgBox.setEscapeButton(cancelButton);
+
+    // Show the dialog and wait for response
+    msgBox.exec();
+
+    QAbstractButton *clickedButton = msgBox.clickedButton();
+    qDebug() << "User clicked button";
+
+    if (clickedButton == saveButton) {
+        qDebug() << "User chose to SAVE";
+        // User wants to save
+        bool saveSuccess;
         if (editorTab->filePath().isEmpty()) {
-            return handleSaveFileAsTriggered(); // ***FIXED: CALL NEW SLOT NAME HERE***
+            saveSuccess = handleSaveFileAsTriggered(); // Save As for untitled files
         } else {
-            return editorTab->saveFile(editorTab->filePath()); // Save to existing path
+            saveSuccess = editorTab->saveFile(editorTab->filePath()); // Save to existing path
         }
-    } else if (ret == QMessageBox::Cancel) {
-        return false; // User cancelled save operation
+        qDebug() << "Save operation result:" << saveSuccess;
+        return saveSuccess;
+
+    } else if (clickedButton == discardButton) {
+        qDebug() << "User chose to DISCARD";
+        // User chose to discard changes
+        return true;
+
+    } else {
+        qDebug() << "User chose to CANCEL";
+        // User cancelled
+        return false;
     }
-    return true; // Discard was chosen, or successfully saved
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    qDebug() << "=== closeEvent STARTED ===";
+    qDebug() << "Checking" << ui->tabWidgetEditor->count() << "tabs for unsaved changes";
+
     // Iterate through all open tabs and check for unsaved changes
-    // Iterate backwards or use a copy if elements might be removed
-    // (though saveCurrentFile only affects current, and removeOne in on_tabWidgetEditor_tabCloseRequested handles that)
     for (int i = 0; i < ui->tabWidgetEditor->count(); ++i) {
         EditorTabWidget *editorTab = qobject_cast<EditorTabWidget*>(ui->tabWidgetEditor->widget(i));
         if (editorTab && editorTab->isModified()) {
-            ui->tabWidgetEditor->setCurrentIndex(i); // Make the tab current to show the warning clearly
-            if (!saveCurrentFile()) { // This will handle the save/discard/cancel dialog
-                event->ignore(); // User cancelled a save, prevent closing the app
+            qDebug() << "Tab" << i << "(" << QFileInfo(editorTab->filePath()).fileName() << ") is modified";
+
+            // Make the tab current to show the warning clearly
+            ui->tabWidgetEditor->setCurrentIndex(i);
+
+            // Show save dialog and wait for user response
+            bool shouldContinue = saveCurrentFile();
+            qDebug() << "saveCurrentFile returned:" << shouldContinue;
+
+            if (!shouldContinue) {
+                // User cancelled the save operation
+                qDebug() << "=== closeEvent CANCELLED by user ===";
+                event->ignore(); // Prevent closing the app
                 return;
             }
+            qDebug() << "Tab" << i << "handled successfully";
         }
     }
-    event->accept(); // All tabs checked/saved/discarded, allow closing the app
+
+    // All tabs have been processed (saved or discarded)
+    qDebug() << "=== closeEvent ACCEPTING - closing application ===";
+    event->accept(); // Allow closing the app
 }
 
 void MainWindow::on_actionNewFile_triggered()
@@ -833,4 +885,3 @@ void MainWindow::populateProjectList()
 
     // You could later load these from a configuration file or scan a project directory
 }
-

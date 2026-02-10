@@ -1,32 +1,34 @@
-// linenumberarea.h
 #ifndef LINENUMBERAREA_H
 #define LINENUMBERAREA_H
 
 #include <QWidget>
-#include <QPlainTextEdit> // <--- ADD THIS INCLUDE
-
-
-// Forward declaration to avoid including mainwindow.h here,
-// as LineNumberArea only needs to know about QTextEdit's API.
-class QTextEdit;
+#include <QPlainTextEdit>
 
 class LineNumberArea : public QWidget
 {
     Q_OBJECT
+
 public:
-    // This constructor takes a QPlainTextEdit* (the editor it's associated with)
-    // AND a QWidget* (its parent).
     explicit LineNumberArea(QPlainTextEdit *editor, QWidget *parent = nullptr);
-    // ... other methods ...
 
     QSize sizeHint() const override;
+
+    // Method to set or update the code editor
+    void setCodeEditor(QPlainTextEdit *editor);
+
+    // Method to reconnect signals (useful when document changes)
+    void setupConnections();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
 
+private slots:
+    void onDocumentChanged();
+    void onBlockCountChanged(int newBlockCount);
+    void updateArea(const QRect &rect, int dy);
+
 private:
-    //QTextEdit *codeEditor;
-        QPlainTextEdit *m_codeEditor; // This will hold the pointer to the QPlainTextEdit
+    QPlainTextEdit *m_codeEditor;
 };
 
 #endif // LINENUMBERAREA_H

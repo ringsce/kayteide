@@ -18,8 +18,16 @@ LineNumberArea::LineNumberArea(QPlainTextEdit *editor, QWidget *parent)
 
 void LineNumberArea::setupConnections()
 {
-    // Clear any existing connections to avoid duplicates
-    disconnect(this);
+    // Disconnect all signals coming FROM the editor (and its children) TO this widget,
+    // so that repeated calls (e.g. from setCodeEditor) never stack duplicate connections.
+    // disconnect(this) only removes signals emitted BY this — it is ineffective here.
+    if (m_codeEditor) {
+        if (m_codeEditor->verticalScrollBar())
+            disconnect(m_codeEditor->verticalScrollBar(), nullptr, this, nullptr);
+        if (m_codeEditor->document())
+            disconnect(m_codeEditor->document(), nullptr, this, nullptr);
+        disconnect(m_codeEditor, nullptr, this, nullptr);
+    }
 
     if (!m_codeEditor) {
         qWarning() << "LineNumberArea: No code editor set!";
@@ -129,14 +137,15 @@ void LineNumberArea::paintEvent(QPaintEvent *event)
     painter.setFont(font);
     painter.setPen(Qt::darkGray);
 
-    // Get the current vertical scroll offset
-    int scrollOffset = 0;
-    if (m_codeEditor->verticalScrollBar()) {
-        scrollOffset = m_codeEditor->verticalScrollBar()->value();
-    }
+    // Replicate what the protected QPlainTextEdit::contentOffset().y() returns:
+    //   -scrollBar->value()  +  document top margin
+    // We cannot call contentOffset() directly because it is a protected member.
+    // document()->documentMargin() is the public equivalent of the top margin (default 4 px).
+    qreal viewportOffsetY = -m_codeEditor->verticalScrollBar()->value()
+                            + m_codeEditor->document()->documentMargin();
 
     int blockCount = m_codeEditor->blockCount();
-    qDebug() << "LineNumberArea: Painting" << blockCount << "blocks, scroll offset:" << scrollOffset;
+    qDebug() << "LineNumberArea: Painting" << blockCount << "blocks, scroll offset:" << -viewportOffsetY;
 
     // Iterate through blocks starting from the first one in the document
     QTextBlock block = m_codeEditor->document()->firstBlock();
@@ -147,8 +156,8 @@ void LineNumberArea::paintEvent(QPaintEvent *event)
         // Get the block's bounding rectangle relative to the *document*
         QRectF blockRectInDocument = m_codeEditor->document()->documentLayout()->blockBoundingRect(block);
 
-        // Calculate the block's top Y coordinate in the *viewport*
-        int lineTopInViewport = qRound(blockRectInDocument.top() - scrollOffset);
+        // Convert to viewport coordinates using contentOffset (scroll + document margin)
+        int lineTopInViewport = qRound(blockRectInDocument.top() + viewportOffsetY);
         int lineHeight = qRound(blockRectInDocument.height());
 
         // Check if this line is visible within the current paint event's rectangle

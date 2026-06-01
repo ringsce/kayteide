@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.21 FATAL_ERROR)
 
 project(KayteIDE
         VERSION 1.0.0
@@ -94,27 +94,6 @@ set(GIT_CLIENT_HEADERS
         ${GIT_CLIENT_DIR}/include/GitLogModel.hpp
         ${GIT_CLIENT_DIR}/include/GitBranchManager.hpp
         ${GIT_CLIENT_DIR}/include/GitDiffView.hpp
-)
-
-
-# ─── Unit client (KayteUnitClient static library) ───────────────────────────────
-set(UNIT_CLIENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/plugins/unit_test")
-
-set(UNIT_CLIENT_SOURCES
-        ${UNIT_CLIENT_DIR}/src/LanguageRunner.cpp
-        ${UNIT_CLIENT_DIR}/src/main.cpp
-        ${UNIT_CLIENT_DIR}/src/MultiTestProcess.cpp
-        ${UNIT_CLIENT_DIR}/src/SyntaxHighlighter.cpp
-        ${UNIT_CLIENT_DIR}/src/TestProcess.cpp
-        ${UNIT_CLIENT_DIR}/src/TestRunnerWindow.cpp
-)
-
-set(UNIT_CLIENT_HEADERS
-        ${UNIT_CLIENT_DIR}/src/LanguageRunner.h
-        ${UNIT_CLIENT_DIR}/src/MultiTestProcess.h
-        ${UNIT_CLIENT_DIR}/src/SyntaxHighlighter.h
-        ${UNIT_CLIENT_DIR}/src/TestProcess.h
-        ${UNIT_CLIENT_DIR}/src/TestRunnerWindow.h
 )
 
 # AUTOMOC misses headers that live in a separate include/ directory from the
@@ -221,8 +200,6 @@ set(PROJECT_SOURCES
         src/downloadprogressdialog.cpp
         src/editortabwidget.cpp
         plugins/project/newprojectdialog.cpp  # moved from PROJECT_RESOURCES
-        src/widgetpalettedock.cpp
-        src/uicanvaswidget.cpp
 )
 
 set(PROJECT_HEADERS
@@ -241,8 +218,6 @@ set(PROJECT_HEADERS
         src/threads/posixthread.h
         src/keyboard.h
         plugins/project/newprojectdialog.h   # moved from PROJECT_RESOURCES
-        src/widgetpalettedock.h
-        src/uicanvaswidget.h
 )
 
 set(PROJECT_FORMS
@@ -268,12 +243,12 @@ set(FA_TTF "${CMAKE_CURRENT_SOURCE_DIR}/resources/fonts/fa-solid-900.ttf")
 if(NOT EXISTS "${FA_QRC}")
     message(STATUS "Creating stub resources/resources.qrc (Font Awesome TTF not bundled yet)")
     file(WRITE "${FA_QRC}"
-        "<!DOCTYPE RCC>\n"
-        "<RCC version=\"1.0\">\n"
-        "  <!-- Place fa-solid-900.ttf in resources/fonts/ to enable Font Awesome icons. -->\n"
-        "  <!-- Download: https://use.fontawesome.com/releases/v6.5.1/fontawesome-free-6.5.1-desktop.zip -->\n"
-        "  <qresource/>\n"
-        "</RCC>\n"
+            "<!DOCTYPE RCC>\n"
+            "<RCC version=\"1.0\">\n"
+            "  <!-- Place fa-solid-900.ttf in resources/fonts/ to enable Font Awesome icons. -->\n"
+            "  <!-- Download: https://use.fontawesome.com/releases/v6.5.1/fontawesome-free-6.5.1-desktop.zip -->\n"
+            "  <qresource/>\n"
+            "</RCC>\n"
     )
 endif()
 
@@ -281,16 +256,16 @@ endif()
 if(EXISTS "${FA_TTF}")
     message(STATUS "Font Awesome TTF found – enabling FA icon glyphs")
     file(WRITE "${FA_QRC}"
-        "<!DOCTYPE RCC>\n"
-        "<RCC version=\"1.0\">\n"
-        "  <qresource>\n"
-        "    <file alias=\"fa-solid-900.ttf\">fonts/fa-solid-900.ttf</file>\n"
-        "  </qresource>\n"
-        "</RCC>\n"
+            "<!DOCTYPE RCC>\n"
+            "<RCC version=\"1.0\">\n"
+            "  <qresource>\n"
+            "    <file alias=\"fa-solid-900.ttf\">fonts/fa-solid-900.ttf</file>\n"
+            "  </qresource>\n"
+            "</RCC>\n"
     )
 else()
     message(STATUS "Font Awesome TTF not found – icons use text fallback. "
-        "Re-run cmake after placing fa-solid-900.ttf in resources/fonts/")
+            "Re-run cmake after placing fa-solid-900.ttf in resources/fonts/")
 endif()
 
 list(APPEND PROJECT_RESOURCES "${FA_QRC}")

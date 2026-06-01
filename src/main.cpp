@@ -3,72 +3,145 @@
 #include <QDebug>
 #include <QSplashScreen>
 #include <QPixmap>
-#include <QElapsedTimer>
+#include <QTimer>
+#include <QDir>
+#include <QDockWidget>
+#include <QCommandLineParser>
+#include <QCommandLineOption>
+#include <QStyleFactory>
+#include <QSurfaceFormat>
 
-#include <iostream> // For std::cin, std::cout, std::cerr
-#include <fstream>  // For std::ifstream, std::ofstream
+#include <iostream>
+#include <fstream>
 
-#include "mainwindow.h"       // Assuming your main window class
-#include "myjsontranslator.h" // Assuming your translator class
+#include "mainwindow.h"
+#include "myjsontranslator.h"
+
+#ifdef KAYTE_GIT_CLIENT_ENABLED
+#  include "GitClientPanel.hpp"
+#endif
 
 int main(int argc, char *argv[])
 {
-    // 1. Create a QApplication object. This must be the first Qt object instantiated.
+    // ── High-DPI & surface format (must precede QApplication) ────────────────
+    QApplication::setHighDpiScaleFactorRoundingPolicy(
+        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+
+    QSurfaceFormat fmt;
+    fmt.setSamples(4);
+    QSurfaceFormat::setDefaultFormat(fmt);
+
+    // ── Application object ───────────────────────────────────────────────────
     QApplication a(argc, argv);
+    a.setApplicationName("KayteIDE");
+    a.setApplicationVersion("1.0.0");
+    a.setOrganizationName("ringsce");
+    a.setOrganizationDomain("ringsce.com");
+    a.setStyle(QStyleFactory::create("Fusion"));
 
-    // --- Internationalization Setup ---
-    // ... (Your existing internationalization code) ...
-    QString localeName = QLocale::system().name();
-    QString languageCode = localeName.split('_').first();
+    // ── Command-line parsing ─────────────────────────────────────────────────
+    QCommandLineParser parser;
+    parser.setApplicationDescription("KayteIDE – The Kayte Language IDE");
+    parser.addHelpOption();
+    parser.addVersionOption();
+    parser.addPositionalArgument("path",
+        QObject::tr("Project folder or source file to open at startup."),
+        "[path]");
 
-    MyJsonTranslator *translator = new MyJsonTranslator(&a);
+    QCommandLineOption repoOption(
+        {"r", "repo"},
+        QObject::tr("Git repository to open in the Git panel."),
+        "repo-path");
+    parser.addOption(repoOption);
 
-    QString translationFilePath = QString(":/i18n/%1.json").arg(languageCode);
-    if (translator->load(translationFilePath)) {
-        a.installTranslator(translator);
-        qDebug() << "Loaded translator for locale:" << languageCode;
-    } else {
-        qWarning() << "Failed to load specific translation for language code:" << languageCode
-                   << ". Attempting to load default (English).";
-        if (translator->load(":/i18n/en.json")) {
+    parser.process(a);
+
+    const QStringList positionalArgs = parser.positionalArguments();
+    const QString     startupPath    = positionalArgs.isEmpty()
+                                       ? QDir::currentPath()
+                                       : positionalArgs.first();
+    const QString     repoPath       = parser.isSet(repoOption)
+                                       ? parser.value(repoOption)
+                                       : startupPath;
+    Q_UNUSED(repoPath) // used only when KAYTE_GIT_CLIENT_ENABLED
+
+    // ── Internationalisation ─────────────────────────────────────────────────
+    const QString languageCode = QLocale::system().name().split('_').first();
+
+    auto *translator = new MyJsonTranslator(&a);
+
+    auto tryLoad = [&](const QString &code) -> bool {
+        const QString path = QString(":/i18n/%1.json").arg(code);
+        if (translator->load(path)) {
             a.installTranslator(translator);
-            qDebug() << "Loaded default English translator.";
-        } else {
-            qWarning() << "Failed to load default English translation. No translations will be active.";
-            delete translator;
-            translator = nullptr;
+            qDebug() << "Loaded translation:" << path;
+            return true;
         }
-    }
-    // --- End Internationalization Setup ---
+        return false;
+    };
 
-
-    // --- Splash Screen Setup ---
-    // ... (Your existing splash screen code) ...
-    QPixmap pixmap(":/kayte.png");
-    if (pixmap.isNull()) {
-        qWarning("Failed to load splash screen image 'kayte.png'. Proceeding without a visual splash screen.");
+    if (!tryLoad(languageCode) && !tryLoad("en")) {
+        qWarning() << "No translations loaded – running with built-in strings.";
+        delete translator;
+        translator = nullptr;
     }
 
-    QSplashScreen splash(pixmap);
-    splash.showMessage(QObject::tr("Loading Kayte IDE..."), Qt::AlignBottom | Qt::AlignCenter, Qt::white);
-    splash.show();
+    // ── Splash screen ────────────────────────────────────────────────────────
+    QPixmap splashPixmap(":/kayte.png");
+    if (splashPixmap.isNull())
+        qWarning("Splash image 'kayte.png' not found – skipping splash.");
 
-    QElapsedTimer timer;
-    timer.start();
-    while (timer.elapsed() < 2000) {
-        a.processEvents();
+    QScopedPointer<QSplashScreen> splash;
+    if (!splashPixmap.isNull()) {
+        splash.reset(new QSplashScreen(splashPixmap));
+        splash->showMessage(
+            QObject::tr("Loading KayteIDE…"),
+            Qt::AlignBottom | Qt::AlignCenter,
+            Qt::white);
+        splash->show();
+        a.processEvents(); // paint the splash before the window loads
     }
-    // --- End Splash Screen Setup ---
 
-    // 2. Create an instance of your MainWindow.
+    // ── Main window ──────────────────────────────────────────────────────────
     MainWindow w;
 
-    // 3. Show the main window.
+    // ── Git client dock ──────────────────────────────────────────────────────
+#ifdef KAYTE_GIT_CLIENT_ENABLED
+    auto *gitPanel = new Kayte::GitClientPanel(&w);
+
+    QObject::connect(gitPanel, &Kayte::GitClientPanel::statusMessage,
+                     &w, [&w](const QString &msg) {
+        if (w.statusBar())
+            w.statusBar()->showMessage(msg, 5000);
+    });
+
+    auto *gitDock = new QDockWidget(QObject::tr("Git"), &w);
+    gitDock->setObjectName("GitClientDock");
+    gitDock->setAllowedAreas(Qt::AllDockWidgetAreas);
+    gitDock->setWidget(gitPanel);
+    w.addDockWidget(Qt::BottomDockWidgetArea, gitDock);
+
+    QTimer::singleShot(0, gitPanel, [gitPanel, repoPath] {
+        if (!repoPath.isEmpty())
+            gitPanel->openRepository(repoPath);
+    });
+#endif // KAYTE_GIT_CLIENT_ENABLED
+
+    // ── Open startup file/folder in the editor (if provided) ─────────────────
+    if (!positionalArgs.isEmpty()) {
+        QTimer::singleShot(0, &w, [&w, startupPath] {
+            // Call whatever open method MainWindow exposes, e.g.:
+            // w.openPath(startupPath);
+            Q_UNUSED(startupPath)
+        });
+    }
+
+    // ── Show & finish splash ─────────────────────────────────────────────────
     w.show();
 
-    // 4. Hide the splash screen gracefully once the main window is fully shown.
-    splash.finish(&w);
+    if (splash)
+        splash->finish(&w);
 
-    // 5. Enter the main event loop and hand over control to Qt.
+    // ── Event loop ───────────────────────────────────────────────────────────
     return a.exec();
 }

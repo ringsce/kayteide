@@ -201,7 +201,8 @@ void DownloadProgressDialog::installNextMissingTool()
 // Handles completion of a single repository download
 void DownloadProgressDialog::handleSingleRepoDownloadFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    // Disconnect readyRead signals after process finishes for this stage
+    // Always disconnect readyRead signals first, before any early returns or retries,
+    // to prevent duplicate connections accumulating across multiple calls.
     disconnect(process, &QProcess::readyReadStandardOutput, this, &DownloadProgressDialog::handleProcessReadyReadStandardOutput);
     disconnect(process, &QProcess::readyReadStandardError, this, &DownloadProgressDialog::handleProcessReadyReadStandardError);
 
@@ -212,6 +213,17 @@ void DownloadProgressDialog::handleSingleRepoDownloadFinished(int exitCode, QPro
         log(tr("Successfully downloaded: %1").arg(reposToDownload.at(currentRepoIndex).localDirName));
         ui->repoListWidget->addItem(tr("✔ Downloaded: %1").arg(reposToDownload.at(currentRepoIndex).localDirName));
     } else {
+        // If a specific branch was requested and git failed (exit 128), retry without the branch
+        // specifier so we fall back to the remote's default branch.
+        if (exitCode == 128 && !reposToDownload.at(currentRepoIndex).branch.isEmpty()) {
+            log(tr("Branch '%1' not found for '%2'. Retrying without branch specifier (will use default branch)...")
+                .arg(reposToDownload.at(currentRepoIndex).branch,
+                     reposToDownload.at(currentRepoIndex).localDirName));
+            reposToDownload[currentRepoIndex].branch.clear(); // clear branch so next attempt omits --branch
+            processNextRepo(); // retry the same index
+            return;
+        }
+
         log(tr("Failed to download: %1").arg(reposToDownload.at(currentRepoIndex).localDirName));
         ui->repoListWidget->addItem(tr("✘ Failed: %1").arg(reposToDownload.at(currentRepoIndex).localDirName));
         QMessageBox::warning(this, tr("Download Failed"),
@@ -438,7 +450,7 @@ void DownloadProgressDialog::processNextRepo()
 
         // Check if the directory already exists and is not empty.
         // If it exists and contains files, assume it's already cloned.
-        if (repoDir.exists() && !repoDir.entryList(QDir::NoDotAndDotDot|QDir::AllEntries).isEmpty()) {
+        if (repoDir.exists() && !repoDir.entryList(QDir::NoDotAndDotDot | QDir::AllEntries | QDir::Hidden).isEmpty()) {
             log(tr("Repository '%1' already exists and is not empty. Skipping clone.").arg(repo.localDirName));
             ui->repoListWidget->addItem(tr("✔ Already Exists: %1").arg(repo.localDirName));
             currentRepoIndex++; // Move to the next repo

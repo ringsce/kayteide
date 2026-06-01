@@ -2,25 +2,34 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QDockWidget>
 #include <QSyntaxHighlighter>
 #include <QTabWidget>
 #include <QVector>
-
 #include <QTreeView>
 #include <QFileSystemModel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QLabel>
 #include <QWidget>
-
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-
 #include <QDir>
 #include <QFileDialog>
 #include <QStandardPaths>
 #include <QDebug>
-#include "../plugins/project/newprojectdialog.h" // Add this include
+#include <QProcess>
+#include <QPlainTextEdit>
+#include <QFont>
+#include <QScrollBar>
+#include <QTextCharFormat>
+#include <QTextCursor>
+
+#include "../plugins/project/newprojectdialog.h"
+#include "GitClientPanel.hpp"
+#include "widgetpalettedock.h"
+#include "uicanvaswidget.h"
+
 
 class LineNumberArea;
 class EditorTabWidget;
@@ -32,7 +41,41 @@ class EditorTabWidget;
 #include "delphisyntaxhighlighter.h"
 #include "choicemode.h"
 #include "downloadprogressdialog.h"
-#include "keyboard.h" // <--- ADD THIS INCLUDE
+#include "keyboard.h"
+
+// ── Version control panels ────────────────────────────────────────────────────
+// Forward-declare to avoid pulling heavy headers into every translation unit
+// that includes mainwindow.h.
+namespace Kayte::Svn { class SvnPanel; }
+
+// ─── TerminalWidget ───────────────────────────────────────────────────────────
+// Embedded bash terminal: runs /bin/bash as a child process and pipes I/O
+// to a QPlainTextEdit output view + QLineEdit command input.
+class TerminalWidget : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit TerminalWidget(QWidget *parent = nullptr);
+    ~TerminalWidget() override;
+
+    // Send a command directly to the running bash shell (e.g. cd into a project).
+    void runCommand(const QString &command);
+
+private slots:
+    void onReadyReadStdOut();
+    void onReadyReadStdErr();
+    void onReturnPressed();
+    void onProcessFinished(int exitCode, QProcess::ExitStatus status);
+
+private:
+    void setupUi();
+    void appendOutput(const QString &text, bool isError = false);
+
+    QPlainTextEdit *m_output  { nullptr };
+    QLineEdit      *m_input   { nullptr };
+    QProcess       *m_process { nullptr };
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -51,87 +94,130 @@ protected:
     void updateLineNumberArea(const QRect &rect, int dy);
     void closeEvent(QCloseEvent *event) override;
 
-
 private slots:
+    // ── File ──────────────────────────────────────────────────────────────────
     void on_actionNewFile_triggered();
+    void handleOpenFileTriggered();
     void handleSaveFileTriggered();
     bool handleSaveFileAsTriggered();
     void on_actionCloseTab_triggered();
+    void saveProjectAs();
 
-    // Corrected / consolidated declarations:
-    void handleOpenFileTriggered();
-    void on_tabWidgetEditor_tabCloseRequested(int index); // Keep only ONE of these
+    // ── Tab management ────────────────────────────────────────────────────────
+    void on_tabWidgetEditor_tabCloseRequested(int index);
+    void on_tabWidgetEditor_currentChanged(int index);
+    void onTabClosed(QObject *obj = nullptr);
 
+    // ── Tab title helpers ─────────────────────────────────────────────────────
+    void updateTabTitle(bool modified);
+    void updateTabTitleOnRename(const QString &newTitle);
     void handleTabModificationChanged(bool modified);
     void handleTabTitleChanged(const QString &title);
 
+    // ── Build / Run ───────────────────────────────────────────────────────────
     void buildProject();
     void runProject();
     void cleanProject();
     void debugProject();
 
-    void showAboutDialog();
-    void updateLineNumberAreaWidth(int newBlockCount);
+    // ── Tools menu (SVN + Git) ────────────────────────────────────────────────
+    void setupToolsMenu();
+    void setCurrentProjectPath(const QString &path);
 
-    void showModeSelectionDialog();
-    void activateMode(ChoiceMode::DevelopmentMode mode);
-    void handleDownloadDialogFinished();
+    // ── Terminal dock ─────────────────────────────────────────────────────────
+    void onToggleTerminal();
 
-    void updateTabTitle(bool modified);
-    void updateTabTitleOnRename(const QString &newTitle);
+    // ── .xproj scaffold ───────────────────────────────────────────────────────
+    void onCreateXProj();
 
+    // ── Widget palette / UI designer ──────────────────────────────────────────
+    void onToggleWidgetPalette();
+    void onExportUiFile();
+    void onClearCanvas();
+    void onNewUiFile();
+
+    // ── File browser ──────────────────────────────────────────────────────────
     void handlePathLineEditReturnPressed();
     void handleListViewDoubleClicked(const QModelIndex &index);
 
-    void saveProjectAs(); // <-- ADD THIS NEW SLOT
+    // ── Dialogs ───────────────────────────────────────────────────────────────
+    void showAboutDialog();
+    void showModeSelectionDialog();
+    void on_actionNewProject_triggered();
 
-    void on_tabWidgetEditor_currentChanged(int index); // You will need a slot for tab changes
+    // ── Mode / download ───────────────────────────────────────────────────────
+    void activateMode(ChoiceMode::DevelopmentMode mode);
+    void handleDownloadDialogFinished();
 
-    // <--- ADD THIS NEW SLOT DECLARATION for the destroyed signal
-    void onTabClosed(QObject* obj = nullptr); // Or just void onTabClosed(); if you don't need the QObject*
-
-    void on_actionNewProject_triggered(); // Add this new slot
-
+    // ── Line number area ──────────────────────────────────────────────────────
+    void updateLineNumberAreaWidth(int newBlockCount);
 
 private:
+    // ── UI ────────────────────────────────────────────────────────────────────
     Ui::MainWindow *ui;
 
-    QTreeView *fileListView;
-    QFileSystemModel *fileSystemModel;
-    QLineEdit *pathLineEdit;
-    QPushButton *browseButton;
+    // ── Editor tabs ───────────────────────────────────────────────────────────
+    QVector<EditorTabWidget *> openEditorTabs;
+    EditorTabWidget           *currentEditorTab() const;
+    void                       createNewTab(const QString &filePath = QString());
+    bool                       saveCurrentFile();
 
-    void setupFileBrowser();
-    void setCurrentPath(const QString &path);
+    // ── File browser ──────────────────────────────────────────────────────────
+    QTreeView        *fileListView    { nullptr };
+    QFileSystemModel *fileSystemModel { nullptr };
+    QLineEdit        *pathLineEdit    { nullptr };
+    QPushButton      *browseButton    { nullptr };
+    void              setupFileBrowser();
+    void              setCurrentPath(const QString &path);
 
-    EditorTabWidget* currentEditorTab() const;
-    void createNewTab(const QString &filePath = QString());
-    bool saveCurrentFile();
+    // ── Version control panels ────────────────────────────────────────────────
+    Kayte::Svn::SvnPanel  *m_svnPanel  { nullptr };
+    Kayte::GitClientPanel *m_gitPanel  { nullptr };
+    QDockWidget           *m_gitDock   { nullptr };
+    QString                m_currentProjectPath;
 
-    QString defaultDownloadPath;
-    QStringList radModeRepos;
-    QStringList editorModeRepos;
-    void setupDownloadRepos();
+    // ── Terminal dock ─────────────────────────────────────────────────────────
+    TerminalWidget *m_terminalWidget { nullptr };
+    QDockWidget    *m_terminalDock   { nullptr };
+    QAction        *m_actTerminal    { nullptr };  // checkable – toggles dock
 
-    QVector<EditorTabWidget*> openEditorTabs; // Already exists
+    // ── Font Awesome ──────────────────────────────────────────────────────────
+    // Load fa-solid-900.ttf from Qt resources (:/fa-solid-900.ttf) once, then
+    // use m_faFont to render any ICON_FA_* glyph string on a QLabel / QAction.
+    QFont m_faFont;
+    void  setupFontAwesome();
+    void  setupTerminalDock();
+    void  setupWidgetPalette();
 
-    // ADD THESE NEW MEMBERS to store project-specific settings if they don't exist
-    // These will hold the current project's context
-    QString m_currentProjectFilePath; // Full path to the .xprj file, if a project is loaded/saved
-    QString m_currentProjectName;     // Name of the project (e.g., "MyProject")
+    // ── Widget Palette Dock ───────────────────────────────────────────────────
+    WidgetPaletteDock *m_paletteDock   { nullptr };
+    QDockWidget       *m_designerDock  { nullptr };
+    UiCanvasWidget    *m_canvas        { nullptr };
+    QAction           *m_actPalette    { nullptr };
+    QAction           *m_actDesigner   { nullptr };
 
-    // Placeholders for build commands - initialize these elsewhere or link to your actual settings
-    QString m_buildCommand = "make all"; // Example default
-    QString m_runCommand = "./output_executable"; // Example default
-    QString m_cleanCommand = "make clean"; // Example default
-    QString m_debugCommand = "lldb ./output_executable"; // Example default
+    // ── Project persistence ───────────────────────────────────────────────────
+    QString m_currentProjectFilePath;
+    QString m_currentProjectName;
 
-    ChoiceMode::DevelopmentMode currentDevelopmentMode;
+    // ── Build commands (defaults; overridden by loaded project settings) ──────
+    QString m_buildCommand  { QStringLiteral("make all")                 };
+    QString m_runCommand    { QStringLiteral("./output_executable")      };
+    QString m_cleanCommand  { QStringLiteral("make clean")               };
+    QString m_debugCommand  { QStringLiteral("lldb ./output_executable") };
 
+    // ── Download / mode ───────────────────────────────────────────────────────
+    QString                     defaultDownloadPath;
+    QStringList                 radModeRepos;
+    QStringList                 editorModeRepos;
+    void                        setupDownloadRepos();
+    ChoiceMode::DevelopmentMode currentDevelopmentMode { ChoiceMode::TextEditor };
+
+    // ── Project list ──────────────────────────────────────────────────────────
     void populateProjectList();
 
-    KeyboardShortcutsManager *m_keyboardShortcutsManager; // <--- ADD THIS MEMBER
-
+    // ── Keyboard shortcuts ────────────────────────────────────────────────────
+    KeyboardShortcutsManager *m_keyboardShortcutsManager { nullptr };
 };
 
 #endif // MAINWINDOW_H

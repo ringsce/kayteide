@@ -35,6 +35,12 @@
 #include <QToolBar>
 #include <QScrollArea>
 #include <QSplitter>
+#include <QSortFilterProxyModel>
+#include <QHeaderView>
+#include <QToolButton>
+#include <QApplication>
+#include <QClipboard>
+#include <QSysInfo>
 #include "widgetpalettedock.h"
 #include "uicanvaswidget.h"
 
@@ -53,6 +59,7 @@
 
 // Custom widgets and dialogs
 #include "editortabwidget.h"
+#include "linenumberarea.h"
 #include "choicemode.h"
 #include "downloadprogressdialog.h"
 #include "keyboard.h"
@@ -204,6 +211,10 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     setWindowTitle(tr("Kayte IDE"));
 
+    // ── Application icon (bundled SVG, works on all platforms) ──────────
+    setWindowIcon(QIcon(":/app-icon"));
+    QApplication::setWindowIcon(QIcon(":/app-icon"));
+
     qDebug() << "DEBUG: MainWindow constructor - ui pointer:" << ui;
     if (ui)
         qDebug() << "DEBUG: MainWindow constructor - ui->tabWidgetEditor pointer:" << ui->tabWidgetEditor;
@@ -227,17 +238,17 @@ MainWindow::MainWindow(QWidget *parent)
     setupDownloadRepos();
 
     // --- Menu & Toolbar Icons ---
-    ui->actionNewFile->setIcon(QIcon::fromTheme("document-new"));
-    ui->actionOpen->setIcon(QIcon::fromTheme("document-open"));
-    ui->actionSave->setIcon(QIcon::fromTheme("document-save"));
-    ui->actionSave_As->setIcon(QIcon::fromTheme("document-save-as"));
-    ui->actionCloseTab->setIcon(QIcon::fromTheme("tab-close"));
-    ui->actionExit->setIcon(QIcon::fromTheme("application-exit"));
-    ui->actionBuild->setIcon(QIcon::fromTheme("system-run"));
-    ui->actionClean->setIcon(QIcon::fromTheme("edit-clear"));
-    ui->actionRun->setIcon(QIcon::fromTheme("media-playback-start"));
-    ui->actionDebug->setIcon(QIcon::fromTheme("tools-debugger"));
-    ui->actionAbout->setIcon(QIcon::fromTheme("help-about"));
+    ui->actionNewFile->setIcon(QIcon::fromTheme("document-new", QIcon(":/icons/22/document-new")));
+    ui->actionOpen->setIcon(QIcon::fromTheme("document-open", QIcon(":/icons/22/document-open")));
+    ui->actionSave->setIcon(QIcon::fromTheme("document-save", QIcon(":/icons/22/document-save")));
+    ui->actionSave_As->setIcon(QIcon::fromTheme("document-save-as", QIcon(":/icons/22/document-save-as")));
+    ui->actionCloseTab->setIcon(QIcon::fromTheme("tab-close", QIcon(":/icons/22/tab-close")));
+    ui->actionExit->setIcon(QIcon::fromTheme("application-exit", QIcon(":/icons/22/application-exit")));
+    ui->actionBuild->setIcon(QIcon::fromTheme("system-run", QIcon(":/icons/22/system-run")));
+    ui->actionClean->setIcon(QIcon::fromTheme("edit-clear", QIcon(":/icons/22/edit-clear")));
+    ui->actionRun->setIcon(QIcon::fromTheme("media-playback-start", QIcon(":/icons/22/media-playback-start")));
+    ui->actionDebug->setIcon(QIcon::fromTheme("tools-debugger", QIcon(":/icons/22/tools-debugger")));
+    ui->actionAbout->setIcon(QIcon::fromTheme("help-about", QIcon(":/icons/22/help-about")));
 
     // --- File / Edit / Build connections ---
     connect(ui->actionNewFile,      &QAction::triggered, this, &MainWindow::on_actionNewFile_triggered);
@@ -251,6 +262,24 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionClean,        &QAction::triggered, this, &MainWindow::cleanProject);
     connect(ui->actionDebug,        &QAction::triggered, this, &MainWindow::debugProject);
     connect(ui->actionAbout,        &QAction::triggered, this, &MainWindow::showAboutDialog);
+
+    // ── About Qt ─────────────────────────────────────────────────────────────
+    // Walk the menu bar to find the Help menu and append "About Qt".
+    // QAction::AboutQtRole makes macOS move it into the application menu automatically.
+    for (QAction *menuAction : menuBar()->actions()) {
+        QMenu *m = menuAction->menu();
+        if (m && menuAction->text().contains(tr("Help"), Qt::CaseInsensitive)) {
+            m->addSeparator();
+            QAction *aboutQtAct = m->addAction(
+                QIcon::fromTheme("help-about", QIcon(":/icons/22/help-about")),
+                tr("About &Qt"));
+            aboutQtAct->setStatusTip(
+                tr("Show information about the Qt framework version used by KayteIDE"));
+            aboutQtAct->setMenuRole(QAction::AboutQtRole);
+            connect(aboutQtAct, &QAction::triggered, qApp, &QApplication::aboutQt);
+            break;
+        }
+    }
     connect(ui->actionSaveProjectAs,&QAction::triggered, this, &MainWindow::saveProjectAs);
     connect(ui->actionNewProject,   &QAction::triggered, this, &MainWindow::on_actionNewProject_triggered);
 
@@ -271,6 +300,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     // --- Widget Palette + UI Designer ---
     setupWidgetPalette();
+
+    // --- Project panel (left dock) ---
+    setupProjectPanel();
 
     // --- Mode selection (queued so the window shows first) ---
     QMetaObject::invokeMethod(this, "showModeSelectionDialog", Qt::QueuedConnection);
@@ -723,7 +755,7 @@ void MainWindow::setupToolsMenu()
     m_svnPanel->hide(); // hidden until user requests it
 
     QAction *svnAction = toolsMenu->addAction(
-        QIcon::fromTheme("svn"),
+        QIcon::fromTheme("svn", QIcon(":/icons/22/svn")),
         tr("&Subversion (SVN)…"));
     svnAction->setCheckable(true);
     svnAction->setChecked(false);
@@ -753,7 +785,7 @@ void MainWindow::setupToolsMenu()
     m_gitDock->hide();
 
     QAction *gitAction = toolsMenu->addAction(
-        QIcon::fromTheme("git"),
+        QIcon::fromTheme("git", QIcon(":/icons/22/git")),
         tr("&Git…"));
     gitAction->setCheckable(true);
     gitAction->setChecked(false);
@@ -772,7 +804,7 @@ void MainWindow::setupToolsMenu()
 
     // ── Version control → Set working directory ───────────────────────────────
     QAction *setVcDir = toolsMenu->addAction(
-        QIcon::fromTheme("folder"),
+        QIcon::fromTheme("folder", QIcon(":/icons/22/folder")),
         tr("Set &Working Directory…"));
     setVcDir->setStatusTip(tr("Set the root directory used by the SVN and Git panels"));
     connect(setVcDir, &QAction::triggered, this, [this]() {
@@ -789,7 +821,7 @@ void MainWindow::setupToolsMenu()
 
     // ── Keyboard shortcuts reference ─────────────────────────────────────────
     QAction *kbAction = toolsMenu->addAction(
-        QIcon::fromTheme("preferences-desktop-keyboard"),
+        QIcon::fromTheme("preferences-desktop-keyboard", QIcon(":/icons/22/preferences-desktop-keyboard")),
         tr("&Keyboard Shortcuts…"));
     kbAction->setStatusTip(tr("Show keyboard shortcuts reference"));
     connect(kbAction, &QAction::triggered, this, [this]() {
@@ -819,6 +851,8 @@ void MainWindow::setCurrentProjectPath(const QString &path)
         m_svnPanel->setWorkingCopy(path);
     if (m_gitPanel && m_gitDock->isVisible())
         m_gitPanel->openRepository(path);
+    // Keep the project panel in sync whenever the active project changes.
+    setProjectRoot(path);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -852,11 +886,30 @@ void MainWindow::handleOpenFileTriggered()
 
     EditorTabWidget *newTab = new EditorTabWidget(filePath, ui->tabWidgetEditor);
     if (newTab->loadFile(filePath)) {
+        // Reset modified flag AFTER loading so opening a file doesn't
+        // immediately trigger the "unsaved changes" dialog on close.
+        newTab->setModified(false);
         int idx = ui->tabWidgetEditor->addTab(newTab, QFileInfo(filePath).fileName());
         ui->tabWidgetEditor->setCurrentIndex(idx);
         connect(newTab, &EditorTabWidget::modificationChanged, this, &MainWindow::updateTabTitle);
         connect(newTab, &EditorTabWidget::titleChanged, this, &MainWindow::updateTabTitleOnRename);
         connect(newTab, &EditorTabWidget::destroyed, this, &MainWindow::onTabClosed);
+
+        // Attach line number area to files opened via File → Open
+        if (QPlainTextEdit *ed = newTab->getPlainTextEdit()) {
+            auto *lna = new LineNumberArea(ed, ed);
+            const QPalette pal = ed->palette();
+            if (pal.color(QPalette::Base).lightness() < 128) {
+                lna->setBackgroundColor(pal.color(QPalette::Base).darker(110));
+                lna->setForegroundColor(pal.color(QPalette::PlaceholderText));
+                lna->setCurrentLineColor(pal.color(QPalette::Text));
+            } else {
+                lna->setBackgroundColor(pal.color(QPalette::Base).darker(105));
+                lna->setForegroundColor(Qt::darkGray);
+                lna->setCurrentLineColor(Qt::black);
+            }
+            lna->updateWidth(ed->blockCount());
+        }
     } else {
         newTab->deleteLater();
     }
@@ -866,6 +919,340 @@ void MainWindow::on_tabWidgetEditor_currentChanged(int index)
 {
     EditorTabWidget *current = qobject_cast<EditorTabWidget*>(ui->tabWidgetEditor->widget(index));
     m_keyboardShortcutsManager->setTargetEditor(current ? current->getPlainTextEdit() : nullptr);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Project Panel – left-side dock showing the open project's file tree
+// ═════════════════════════════════════════════════════════════════════════════
+
+void MainWindow::setupProjectPanel()
+{
+    // ── Dock widget ───────────────────────────────────────────────────────────
+    m_projectDock = new QDockWidget(tr("Project"), this);
+    m_projectDock->setObjectName(QStringLiteral("ProjectDock"));
+    m_projectDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    m_projectDock->setFeatures(QDockWidget::DockWidgetMovable   |
+                                QDockWidget::DockWidgetFloatable |
+                                QDockWidget::DockWidgetClosable);
+
+    // ── Container widget ──────────────────────────────────────────────────────
+    auto *container = new QWidget(m_projectDock);
+    auto *vlay      = new QVBoxLayout(container);
+    vlay->setContentsMargins(0, 0, 0, 0);
+    vlay->setSpacing(0);
+
+    // ── Header bar: project name + open-folder button ─────────────────────────
+    auto *header    = new QWidget(container);
+    header->setObjectName(QStringLiteral("ProjectPanelHeader"));
+    header->setStyleSheet(
+        QStringLiteral("QWidget#ProjectPanelHeader {"
+                        "  background: palette(mid);"
+                        "  border-bottom: 1px solid palette(dark);"
+                        "}"));
+
+    auto *headerLay = new QHBoxLayout(header);
+    headerLay->setContentsMargins(6, 4, 4, 4);
+    headerLay->setSpacing(4);
+
+    m_projectNameLabel = new QLabel(tr("(no project)"), header);
+    m_projectNameLabel->setObjectName(QStringLiteral("ProjectNameLabel"));
+    QFont lf = m_projectNameLabel->font();
+    lf.setBold(true);
+    m_projectNameLabel->setFont(lf);
+    m_projectNameLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+    // Open-folder button
+    auto *openBtn = new QToolButton(header);
+    openBtn->setIcon(QIcon::fromTheme("folder-new", QIcon(":/icons/22/folder-new")));
+    openBtn->setToolTip(tr("Open project folder…"));
+    openBtn->setAutoRaise(true);
+    connect(openBtn, &QToolButton::clicked, this, &MainWindow::onOpenProjectFolder);
+
+    // Collapse-all button
+    auto *collapseBtn = new QToolButton(header);
+    collapseBtn->setIcon(QIcon::fromTheme("view-list-tree",
+                         QIcon(":/icons/22/view-split-left-right")));
+    collapseBtn->setToolTip(tr("Collapse all"));
+    collapseBtn->setAutoRaise(true);
+    connect(collapseBtn, &QToolButton::clicked, this, &MainWindow::onCollapseAll);
+
+    // Refresh button
+    auto *refreshBtn = new QToolButton(header);
+    refreshBtn->setIcon(QIcon::fromTheme("view-refresh",
+                        QIcon(":/icons/22/vcs-update-required")));
+    refreshBtn->setToolTip(tr("Refresh"));
+    refreshBtn->setAutoRaise(true);
+    connect(refreshBtn, &QToolButton::clicked, this, &MainWindow::onRefreshProject);
+
+    headerLay->addWidget(m_projectNameLabel, 1);
+    headerLay->addWidget(collapseBtn);
+    headerLay->addWidget(refreshBtn);
+    headerLay->addWidget(openBtn);
+
+    // ── File-system model ─────────────────────────────────────────────────────
+    m_projectModel = new QFileSystemModel(this);
+    m_projectModel->setFilter(QDir::AllEntries | QDir::NoDotAndDotDot);
+    // Show all source file types relevant to KayteIDE
+    m_projectModel->setNameFilters({
+        "*.kayte", "*.kyt",
+        "*.cpp", "*.cxx", "*.cc", "*.c",
+        "*.h", "*.hpp", "*.hxx",
+        "*.vb",
+        "*.pas", "*.pp", "*.dpr",
+        "*.dfm",
+        "*.txt", "*.md",
+        "*.json", "*.xml",
+        "*.xproj", "*.xprj",
+        "CMakeLists.txt", "*.cmake",
+        "Makefile", "*.mk",
+        "*.ui",
+    });
+    m_projectModel->setNameFilterDisables(false); // hide non-matching files
+
+    // Proxy for case-insensitive sorting
+    m_projectProxy = new QSortFilterProxyModel(this);
+    m_projectProxy->setSourceModel(m_projectModel);
+    m_projectProxy->setSortCaseSensitivity(Qt::CaseInsensitive);
+    m_projectProxy->setFilterCaseSensitivity(Qt::CaseInsensitive);
+
+    // ── Tree view ─────────────────────────────────────────────────────────────
+    m_projectTree = new QTreeView(container);
+    m_projectTree->setModel(m_projectProxy);
+    m_projectTree->setRootIsDecorated(true);
+    m_projectTree->setAnimated(true);
+    m_projectTree->setUniformRowHeights(true);
+    m_projectTree->setSortingEnabled(true);
+    m_projectTree->sortByColumn(0, Qt::AscendingOrder);
+    m_projectTree->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_projectTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_projectTree->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_projectTree->setDragEnabled(false);
+    m_projectTree->setHeaderHidden(true); // hide "Name / Size / Type / Date" header
+
+    // Hide Size, Type, Date Modified columns – show only the name column
+    m_projectTree->header()->setSectionHidden(1, true);
+    m_projectTree->header()->setSectionHidden(2, true);
+    m_projectTree->header()->setSectionHidden(3, true);
+    m_projectTree->header()->setStretchLastSection(false);
+    m_projectTree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+
+    connect(m_projectTree, &QTreeView::doubleClicked,
+            this, &MainWindow::onProjectTreeDoubleClicked);
+    connect(m_projectTree, &QTreeView::customContextMenuRequested,
+            this, &MainWindow::onProjectTreeContextMenu);
+
+    // ── Assemble ──────────────────────────────────────────────────────────────
+    vlay->addWidget(header);
+    vlay->addWidget(m_projectTree, 1);
+
+    m_projectDock->setWidget(container);
+    addDockWidget(Qt::LeftDockWidgetArea, m_projectDock);
+
+    // ── View menu toggle action ───────────────────────────────────────────────
+    m_actProjectPanel = m_projectDock->toggleViewAction();
+    m_actProjectPanel->setText(tr("&Project Panel"));
+    m_actProjectPanel->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_1));
+    m_actProjectPanel->setStatusTip(tr("Show / hide the project file panel"));
+    m_actProjectPanel->setIcon(
+        QIcon::fromTheme("folder", QIcon(":/icons/22/folder")));
+
+    // Add to View menu
+    for (QAction *a : menuBar()->actions()) {
+        if (a->menu() && a->text().contains(tr("View"), Qt::CaseInsensitive)) {
+            a->menu()->insertAction(a->menu()->actions().isEmpty()
+                                    ? nullptr : a->menu()->actions().first(),
+                                    m_actProjectPanel);
+            a->menu()->insertSeparator(a->menu()->actions().isEmpty()
+                                       ? nullptr : a->menu()->actions().value(1));
+            break;
+        }
+    }
+
+    // Start at the home directory until a project is opened
+    setProjectRoot(QDir::homePath());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// setProjectRoot – point the tree at a new directory
+// ─────────────────────────────────────────────────────────────────────────────
+void MainWindow::setProjectRoot(const QString &path)
+{
+    if (path.isEmpty() || !QDir(path).exists()) return;
+
+    const QModelIndex srcRoot = m_projectModel->setRootPath(path);
+    const QModelIndex proxyRoot = m_projectProxy->mapFromSource(srcRoot);
+    m_projectTree->setRootIndex(proxyRoot);
+
+    // Update the header label with the folder name
+    const QString folderName = QDir(path).dirName();
+    m_projectNameLabel->setText(folderName.isEmpty() ? path : folderName);
+    m_projectNameLabel->setToolTip(path);
+
+    // Expand the first level automatically
+    m_projectTree->expandToDepth(0);
+
+    // Raise the dock so the user can see it
+    if (m_projectDock) {
+        m_projectDock->show();
+        m_projectDock->raise();
+    }
+
+    qDebug() << "[ProjectPanel] Root set to:" << path;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// onOpenProjectFolder – browse for a folder and make it the project root
+// ─────────────────────────────────────────────────────────────────────────────
+void MainWindow::onOpenProjectFolder()
+{
+    const QString dir = QFileDialog::getExistingDirectory(
+        this, tr("Open Project Folder"),
+        m_currentProjectPath.isEmpty() ? QDir::homePath() : m_currentProjectPath,
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (dir.isEmpty()) return;
+
+    setCurrentProjectPath(dir); // updates VC panels + project tree
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// onProjectTreeDoubleClicked – open the file in a new editor tab
+// ─────────────────────────────────────────────────────────────────────────────
+void MainWindow::onProjectTreeDoubleClicked(const QModelIndex &proxyIndex)
+{
+    const QModelIndex srcIndex = m_projectProxy->mapToSource(proxyIndex);
+    const QFileInfo fi = m_projectModel->fileInfo(srcIndex);
+
+    if (fi.isDir()) {
+        // Toggle expand/collapse on directories
+        if (m_projectTree->isExpanded(proxyIndex))
+            m_projectTree->collapse(proxyIndex);
+        else
+            m_projectTree->expand(proxyIndex);
+        return;
+    }
+
+    if (fi.isFile()) {
+        // Check if the file is already open in a tab
+        for (int i = 0; i < ui->tabWidgetEditor->count(); ++i) {
+            auto *tab = qobject_cast<EditorTabWidget *>(
+                ui->tabWidgetEditor->widget(i));
+            if (tab && tab->filePath() == fi.absoluteFilePath()) {
+                ui->tabWidgetEditor->setCurrentIndex(i);
+                return;
+            }
+        }
+        createNewTab(fi.absoluteFilePath());
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// onProjectTreeContextMenu – right-click menu on the project tree
+// ─────────────────────────────────────────────────────────────────────────────
+void MainWindow::onProjectTreeContextMenu(const QPoint &pos)
+{
+    const QModelIndex proxyIndex = m_projectTree->indexAt(pos);
+    const QModelIndex srcIndex   = m_projectProxy->mapToSource(proxyIndex);
+    const QFileInfo fi = proxyIndex.isValid()
+                         ? m_projectModel->fileInfo(srcIndex)
+                         : QFileInfo();
+
+    QMenu menu(this);
+
+    if (fi.isFile()) {
+        QAction *openAct = menu.addAction(
+            QIcon::fromTheme("document-open", QIcon(":/icons/22/document-open")),
+            tr("Open \"%1\"").arg(fi.fileName()));
+        connect(openAct, &QAction::triggered, this, [this, fi]() {
+            createNewTab(fi.absoluteFilePath());
+        });
+
+        menu.addSeparator();
+
+        QAction *revealAct = menu.addAction(
+            QIcon::fromTheme("folder", QIcon(":/icons/22/folder")),
+            tr("Reveal in Finder / Explorer"));
+        connect(revealAct, &QAction::triggered, this, [fi]() {
+            // Cross-platform "reveal in file manager"
+            QStringList args;
+#if defined(Q_OS_MACOS)
+            args << "-e" << "tell application \"Finder\" to reveal POSIX file \"" +
+                             fi.absoluteFilePath() + "\"";
+            QProcess::startDetached("osascript", args);
+            QProcess::startDetached("open", {"-R", fi.absoluteFilePath()});
+#elif defined(Q_OS_WIN)
+            args << "/select," << QDir::toNativeSeparators(fi.absoluteFilePath());
+            QProcess::startDetached("explorer.exe", args);
+#else
+            QProcess::startDetached("xdg-open", {fi.absolutePath()});
+#endif
+        });
+
+        menu.addSeparator();
+
+        QAction *copyPathAct = menu.addAction(tr("Copy Full Path"));
+        connect(copyPathAct, &QAction::triggered, this, [fi]() {
+            QApplication::clipboard()->setText(fi.absoluteFilePath());
+        });
+
+    } else if (fi.isDir()) {
+        QAction *setRootAct = menu.addAction(
+            QIcon::fromTheme("folder-new", QIcon(":/icons/22/folder-new")),
+            tr("Set as Project Root"));
+        connect(setRootAct, &QAction::triggered, this, [this, fi]() {
+            setCurrentProjectPath(fi.absoluteFilePath());
+        });
+
+        menu.addSeparator();
+
+        QAction *newFileAct = menu.addAction(
+            QIcon::fromTheme("document-new", QIcon(":/icons/22/document-new")),
+            tr("New File Here…"));
+        connect(newFileAct, &QAction::triggered, this, [this, fi]() {
+            bool ok = false;
+            const QString name = QInputDialog::getText(
+                this, tr("New File"),
+                tr("File name:"), QLineEdit::Normal,
+                QStringLiteral("newfile.kayte"), &ok).trimmed();
+            if (!ok || name.isEmpty()) return;
+            const QString fullPath = fi.absoluteFilePath() + "/" + name;
+            QFile f(fullPath);
+            if (f.open(QIODevice::WriteOnly)) {
+                f.close();
+                createNewTab(fullPath);
+                onRefreshProject();
+            } else {
+                QMessageBox::warning(this, tr("Error"),
+                    tr("Could not create file:\n%1").arg(fullPath));
+            }
+        });
+    }
+
+    // Always show "Open Folder…" at the bottom
+    menu.addSeparator();
+    QAction *openFolderAct = menu.addAction(
+        QIcon::fromTheme("folder", QIcon(":/icons/22/folder")),
+        tr("Open Project Folder…"));
+    connect(openFolderAct, &QAction::triggered, this, &MainWindow::onOpenProjectFolder);
+
+    menu.exec(m_projectTree->viewport()->mapToGlobal(pos));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// onCollapseAll / onRefreshProject
+// ─────────────────────────────────────────────────────────────────────────────
+void MainWindow::onCollapseAll()
+{
+    m_projectTree->collapseAll();
+    m_projectTree->expandToDepth(0); // keep the root level visible
+}
+
+void MainWindow::onRefreshProject()
+{
+    // QFileSystemModel updates automatically, but we can force-reload the root
+    const QString current = m_projectModel->rootPath();
+    m_projectModel->setRootPath(QString()); // reset
+    setProjectRoot(current);                // re-apply
+    statusBar()->showMessage(tr("Project tree refreshed."), 2000);
 }
 
 void MainWindow::setupFileBrowser()
@@ -947,9 +1334,16 @@ void MainWindow::onTabClosed(QObject *obj)
 
 void MainWindow::createNewTab(const QString &filePath)
 {
+    // If the user asks for a NEW Untitled tab and the current tab is already
+    // an empty, unmodified Untitled tab, reuse it instead of stacking blanks.
     if (filePath.isEmpty() && ui->tabWidgetEditor->count() > 0) {
         EditorTabWidget *current = currentEditorTab();
+        if (current && current->filePath().isEmpty() && !current->isModified()) {
+            // Current tab is a pristine Untitled – nothing to do; just focus it.
+            return;
+        }
         if (current && current->filePath().isEmpty() && current->isModified()) {
+            // Current tab has unsaved Untitled content – ask before replacing.
             if (!saveCurrentFile()) return;
         }
     }
@@ -979,9 +1373,33 @@ void MainWindow::createNewTab(const QString &filePath)
     int index = ui->tabWidgetEditor->addTab(editorTab, tabTitle);
     ui->tabWidgetEditor->setCurrentIndex(index);
 
-    if (filePath.isEmpty()) {
-        editorTab->setModified(true);
-        updateTabTitle(true);
+    // Do NOT mark a fresh Untitled tab as modified.
+    // isModified() stays false until the user actually types something,
+    // so closeTab won't ask "save changes?" for an untouched new file.
+    if (!filePath.isEmpty()) {
+        // Reset the modified flag after loading so the "save?" dialog
+        // doesn't fire immediately after opening a file from disk.
+        editorTab->setModified(false);
+    }
+    // ── Line number area ─────────────────────────────────────────────────────
+    // EditorTabWidget::getPlainTextEdit() should return a CodeEditor* so that
+    // LineNumberArea::updateWidth() can call setViewportMargins() (protected).
+    // We cast to CodeEditor*; if the editor is still a plain QPlainTextEdit
+    // the gutter still paints correctly — only the margin won't auto-set.
+    if (QPlainTextEdit *ed = editorTab->getPlainTextEdit()) {
+        auto *lna = new LineNumberArea(ed, ed);
+        const QPalette pal = ed->palette();
+        const QColor   base = pal.color(QPalette::Base);
+        if (base.lightness() < 128) {
+            lna->setBackgroundColor(base.darker(110));
+            lna->setForegroundColor(pal.color(QPalette::PlaceholderText));
+            lna->setCurrentLineColor(pal.color(QPalette::Text));
+        } else {
+            lna->setBackgroundColor(base.darker(105));
+            lna->setForegroundColor(Qt::darkGray);
+            lna->setCurrentLineColor(Qt::black);
+        }
+        lna->updateWidth(ed->blockCount());
     }
     m_keyboardShortcutsManager->setTargetEditor(editorTab->getPlainTextEdit());
 }
@@ -1058,8 +1476,13 @@ void MainWindow::handleSaveFileTriggered()
 {
     EditorTabWidget *tab = currentEditorTab();
     if (!tab) return;
-    tab->filePath().isEmpty() ? handleSaveFileAsTriggered()
-                              : tab->saveFile(tab->filePath());
+
+    bool ok = tab->filePath().isEmpty()
+              ? handleSaveFileAsTriggered()           // Untitled → Save As dialog
+              : tab->saveFile(tab->filePath());       // known path → save in-place
+
+    if (ok)
+        statusBar()->showMessage(tr("File saved"), 2000);
 }
 
 void MainWindow::handleTabModificationChanged(bool modified)
@@ -1190,6 +1613,9 @@ void MainWindow::on_tabWidgetEditor_tabCloseRequested(int index)
     if (!tab) return;
 
     ui->tabWidgetEditor->setCurrentIndex(index);
+
+    // Only prompt when there are actual unsaved edits.
+    // An Untitled tab that was never typed into (isModified==false) closes silently.
     if (tab->isModified() && !saveCurrentFile()) return;
 
     openEditorTabs.removeOne(tab);
@@ -1258,10 +1684,45 @@ void MainWindow::showAboutDialog()
 {
     QMessageBox about(this);
     about.setWindowTitle(tr("About Kayte IDE"));
-    about.setIconPixmap(QIcon::fromTheme("help-about").pixmap(64, 64));
+
+    QIcon appIcon(":/app-icon");
+    if (appIcon.isNull())
+        appIcon = QIcon::fromTheme("help-about", QIcon(":/icons/22/help-about"));
+    about.setIconPixmap(appIcon.pixmap(64, 64));
+
     about.setTextFormat(Qt::RichText);
-    about.setText(tr("about_dialog_text_html"));
+    about.setText(
+        tr("<h2>Kayte IDE</h2>"
+           "<p>Version %1 &nbsp;|&nbsp; Built with Qt %2</p>"
+           "<p>KayteIDE is an open-source integrated development environment "
+           "for the <b>Kayte</b> programming language, with support for "
+           "C++, Pascal, Delphi, and Visual Basic syntax.</p>"
+           "<p>"
+           "<a href=\"https://github.com/ringsce/kayteide\">GitHub</a>"
+           " &nbsp;&middot;&nbsp; "
+           "<a href=\"https://ringscejs.gleentech.com\">ringsce.com</a>"
+           "</p>"
+           "<p style=\"font-size:small; color:gray;\">"
+           "Copyright &copy; 2024&ndash;2026 ringsce. "
+           "Released under the MIT Licence."
+           "</p>")
+        .arg(QApplication::applicationVersion(),
+             QString::fromLatin1(qVersion()))
+    );
+    about.setInformativeText(
+        QString("Qt %1 \xc2\xb7 %2 \xc2\xb7 %3")
+        .arg(QString::fromLatin1(qVersion()),
+#if defined(Q_OS_MACOS)
+             QStringLiteral("macOS"),
+#elif defined(Q_OS_WIN)
+             QStringLiteral("Windows"),
+#else
+             QStringLiteral("Linux"),
+#endif
+             QSysInfo::currentCpuArchitecture())
+    );
     about.setStandardButtons(QMessageBox::Ok);
+    about.setDefaultButton(QMessageBox::Ok);
     about.exec();
 }
 
@@ -1314,11 +1775,40 @@ void MainWindow::handleDownloadDialogFinished()
     ui->statusbar->showMessage(tr("IDE Ready."), 3000);
 }
 
-void MainWindow::updateLineNumberAreaWidth(int /*newBlockCount*/) {}
+void MainWindow::updateLineNumberAreaWidth(int newBlockCount)
+{
+    // Delegate to the active tab's LineNumberArea if it has one.
+    // EditorTabWidget exposes getPlainTextEdit(); the LineNumberArea is
+    // installed as a child of the editor, so we can find it by type.
+    Q_UNUSED(newBlockCount)
+    if (EditorTabWidget *tab = currentEditorTab()) {
+        if (QPlainTextEdit *ed = tab->getPlainTextEdit()) {
+            if (auto *lna = ed->findChild<LineNumberArea *>()) {
+                lna->updateWidth(newBlockCount);
+            }
+        }
+    }
+}
 
 void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
+    // Resize the LineNumberArea of the active tab to match the new geometry.
+    if (EditorTabWidget *tab = currentEditorTab()) {
+        if (QPlainTextEdit *ed = tab->getPlainTextEdit()) {
+            if (auto *lna = ed->findChild<LineNumberArea *>()) {
+                lna->updateWidth(ed->blockCount());
+            }
+        }
+    }
+}
+
+void MainWindow::updateLineNumberArea(const QRect &rect, int dy)
+{
+    // Forwarded from EditorTabWidget's updateRequest signal.
+    // The LineNumberArea's own onUpdateRequest slot handles this;
+    // this method exists for compatibility with the header declaration.
+    Q_UNUSED(rect) Q_UNUSED(dy)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">
+  <rect width="22" height="22" rx="4" fill="#F05033"/>
+  <!-- Git branch icon in white -->
+  <circle cx="7" cy="6" r="2" fill="white"/>
+  <circle cx="7" cy="17" r="2" fill="white"/>
+  <circle cx="15" cy="9" r="2" fill="white"/>
+  <line x1="7" y1="8" x2="7" y2="15" stroke="white" stroke-width="1.5"/>
+  <path d="M7 8 Q7 11 15 9" fill="none" stroke="white" stroke-width="1.5"/>
+</svg>

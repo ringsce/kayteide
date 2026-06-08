@@ -24,6 +24,11 @@
 #include <QScrollBar>
 #include <QTextCharFormat>
 #include <QTextCursor>
+#include <QSortFilterProxyModel>
+#include <QHeaderView>
+#include <QToolButton>
+#include <QMenu>
+#include <QAction>
 
 #include "../plugins/project/newprojectdialog.h"
 #include "GitClientPanel.hpp"
@@ -136,6 +141,13 @@ private slots:
     void onClearCanvas();
     void onNewUiFile();
 
+    // ── Project panel ─────────────────────────────────────────────────────────
+    void onOpenProjectFolder();
+    void onProjectTreeDoubleClicked(const QModelIndex &index);
+    void onProjectTreeContextMenu(const QPoint &pos);
+    void onCollapseAll();
+    void onRefreshProject();
+
     // ── File browser ──────────────────────────────────────────────────────────
     void handlePathLineEditReturnPressed();
     void handleListViewDoubleClicked(const QModelIndex &index);
@@ -161,6 +173,16 @@ private:
     EditorTabWidget           *currentEditorTab() const;
     void                       createNewTab(const QString &filePath = QString());
     bool                       saveCurrentFile();
+
+    // ── Project panel (left dock) ──────────────────────────────────────────────
+    QDockWidget            *m_projectDock        { nullptr };
+    QTreeView              *m_projectTree        { nullptr };
+    QFileSystemModel       *m_projectModel       { nullptr };
+    QSortFilterProxyModel  *m_projectProxy       { nullptr };
+    QLabel                 *m_projectNameLabel   { nullptr };
+    QAction                *m_actProjectPanel    { nullptr };
+    void                    setupProjectPanel();
+    void                    setProjectRoot(const QString &path);
 
     // ── File browser ──────────────────────────────────────────────────────────
     QTreeView        *fileListView    { nullptr };

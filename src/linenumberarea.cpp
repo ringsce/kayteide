@@ -5,22 +5,19 @@
 #include <QAbstractTextDocumentLayout>
 #include <QDebug>
 
+// ─────────────────────────────────────────────────────────────────────────────
 LineNumberArea::LineNumberArea(QPlainTextEdit *editor, QWidget *parent)
     : QWidget(parent)
     , m_codeEditor(editor)
 {
     setAttribute(Qt::WA_OpaquePaintEvent);
     setAttribute(Qt::WA_StyledBackground);
-
-    // Initial setup of connections
     setupConnections();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 void LineNumberArea::setupConnections()
 {
-    // Disconnect all signals coming FROM the editor (and its children) TO this widget,
-    // so that repeated calls (e.g. from setCodeEditor) never stack duplicate connections.
-    // disconnect(this) only removes signals emitted BY this — it is ineffective here.
     if (m_codeEditor) {
         if (m_codeEditor->verticalScrollBar())
             disconnect(m_codeEditor->verticalScrollBar(), nullptr, this, nullptr);
@@ -34,7 +31,6 @@ void LineNumberArea::setupConnections()
         return;
     }
 
-    // Connect to scroll bar signals
     if (m_codeEditor->verticalScrollBar()) {
         connect(m_codeEditor->verticalScrollBar(), &QScrollBar::valueChanged,
                 this, QOverload<>::of(&QWidget::update));
@@ -42,7 +38,6 @@ void LineNumberArea::setupConnections()
                 this, QOverload<>::of(&QWidget::update));
     }
 
-    // Connect to document signals
     if (m_codeEditor->document()) {
         connect(m_codeEditor->document(), &QTextDocument::contentsChanged,
                 this, &LineNumberArea::onDocumentChanged);
@@ -50,140 +45,151 @@ void LineNumberArea::setupConnections()
                 this, &LineNumberArea::onBlockCountChanged);
         connect(m_codeEditor, &QPlainTextEdit::updateRequest,
                 this, &LineNumberArea::updateArea);
+        // Repaint gutter when cursor moves so current-line highlight updates
+        connect(m_codeEditor, &QPlainTextEdit::cursorPositionChanged,
+                this, QOverload<>::of(&QWidget::update));
     }
 
-    // Force initial update
+    updateWidth(m_codeEditor ? m_codeEditor->blockCount() : 0);
     update();
     updateGeometry();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 void LineNumberArea::setCodeEditor(QPlainTextEdit *editor)
 {
-    if (m_codeEditor == editor) {
-        return;
-    }
-
+    if (m_codeEditor == editor) return;
     m_codeEditor = editor;
     setupConnections();
-
     qDebug() << "LineNumberArea: Editor set, block count:"
              << (m_codeEditor ? m_codeEditor->blockCount() : 0);
 }
 
-void LineNumberArea::onDocumentChanged()
+// ─────────────────────────────────────────────────────────────────────────────
+void LineNumberArea::updateWidth(int blockCount)
 {
-    qDebug() << "LineNumberArea: Document changed, block count:"
-             << (m_codeEditor ? m_codeEditor->blockCount() : 0);
-    updateGeometry();
-    update();
-}
+    if (!m_codeEditor) return;
 
-void LineNumberArea::onBlockCountChanged(int newBlockCount)
-{
-    qDebug() << "LineNumberArea: Block count changed to:" << newBlockCount;
-    updateGeometry();
-    update();
-}
+    const int bc      = blockCount > 0 ? blockCount : m_codeEditor->blockCount();
+    int       digits  = qMax(2, QString::number(qMax(1, bc)).length());
+    const int charW   = fontMetrics().horizontalAdvance(QLatin1Char('9'));
+    const int newW    = 3 + charW * digits + 10;
 
-void LineNumberArea::updateArea(const QRect &rect, int dy)
-{
-    if (dy) {
-        scroll(0, dy);
-    } else {
-        update(0, rect.y(), width(), rect.height());
+    // setViewportMargins is protected on QPlainTextEdit.
+    // If the editor is a CodeEditor we can call it directly via the using-declaration.
+    // Otherwise fall back to doing nothing (margins stay at whatever they were).
+    if (auto *ce = qobject_cast<CodeEditor *>(m_codeEditor)) {
+        ce->setViewportMargins(newW, 0, 0, 0);
     }
 
-    if (rect.contains(m_codeEditor->viewport()->rect())) {
+    if (newW != width()) {
+        resize(newW, height());
         updateGeometry();
     }
 }
 
-QSize LineNumberArea::sizeHint() const
+// ─────────────────────────────────────────────────────────────────────────────
+void LineNumberArea::onDocumentChanged()
 {
-    if (!m_codeEditor) {
-        return QSize(0, 0);
-    }
-
-    int digits = 1;
-    int maxBlock = m_codeEditor->blockCount();
-
-    qDebug() << "LineNumberArea: sizeHint called, blockCount:" << maxBlock;
-
-    if (maxBlock > 0) {
-        digits = QString::number(maxBlock).length();
-    }
-
-    if (digits < 2) digits = 2;
-
-    int width = 3 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
-    width += 10; // Extra padding for better visual spacing
-
-    return QSize(width, 0);
+    updateWidth(m_codeEditor ? m_codeEditor->blockCount() : 0);
+    update();
+    updateGeometry();
 }
 
+void LineNumberArea::onBlockCountChanged(int newBlockCount)
+{
+    updateWidth(newBlockCount);
+    update();
+    updateGeometry();
+}
+
+void LineNumberArea::updateArea(const QRect &rect, int dy)
+{
+    if (dy)
+        scroll(0, dy);
+    else
+        update(0, rect.y(), width(), rect.height());
+
+    if (m_codeEditor && rect.contains(m_codeEditor->viewport()->rect()))
+        updateWidth(m_codeEditor->blockCount());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+QSize LineNumberArea::sizeHint() const
+{
+    if (!m_codeEditor) return { 0, 0 };
+
+    int digits = qMax(2, QString::number(qMax(1, m_codeEditor->blockCount())).length());
+    int w      = 3 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits + 10;
+    return { w, 0 };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 void LineNumberArea::paintEvent(QPaintEvent *event)
 {
     if (!m_codeEditor || !m_codeEditor->document()) {
-        qWarning() << "LineNumberArea: paintEvent called but no editor or document!";
         QPainter painter(this);
-        painter.fillRect(event->rect(), Qt::lightGray);
+        painter.fillRect(event->rect(), m_bg);
         return;
     }
 
     QPainter painter(this);
-    painter.fillRect(event->rect(), Qt::lightGray); // Background for line number area
+    painter.fillRect(event->rect(), m_bg);
 
-    QFont font = m_codeEditor->font();
+    // Right border divider
+    painter.setPen(QPen(m_fg.darker(130), 1));
+    painter.drawLine(width() - 1, event->rect().top(),
+                     width() - 1, event->rect().bottom());
+
+    QFont  font = m_codeEditor->font();
     painter.setFont(font);
-    painter.setPen(Qt::darkGray);
 
-    // Replicate what the protected QPlainTextEdit::contentOffset().y() returns:
-    //   -scrollBar->value()  +  document top margin
-    // We cannot call contentOffset() directly because it is a protected member.
-    // document()->documentMargin() is the public equivalent of the top margin (default 4 px).
-    qreal viewportOffsetY = -m_codeEditor->verticalScrollBar()->value()
-                            + m_codeEditor->document()->documentMargin();
+    // Current cursor block number for highlight
+    const int cursorBlock = m_codeEditor->textCursor().blockNumber();
 
-    int blockCount = m_codeEditor->blockCount();
-    qDebug() << "LineNumberArea: Painting" << blockCount << "blocks, scroll offset:" << -viewportOffsetY;
+    // Scroll offset: use the public document-layout approach so we never
+    // need firstVisibleBlock() or contentOffset() (both protected).
+    const qreal scrollY   = m_codeEditor->verticalScrollBar()->value();
+    const qreal docMargin = m_codeEditor->document()->documentMargin();
+    const qreal offsetY   = -scrollY + docMargin;
 
-    // Iterate through blocks starting from the first one in the document
-    QTextBlock block = m_codeEditor->document()->firstBlock();
-    int blockNumber = 0; // 0-indexed block number
+    QTextBlock block      = m_codeEditor->document()->firstBlock();
+    int        blockNum   = 0;
 
-    // Loop through blocks as long as they are valid
     while (block.isValid()) {
-        // Get the block's bounding rectangle relative to the *document*
-        QRectF blockRectInDocument = m_codeEditor->document()->documentLayout()->blockBoundingRect(block);
+        const QRectF br   = m_codeEditor->document()
+                            ->documentLayout()->blockBoundingRect(block);
+        const int lineTop = qRound(br.top() + offsetY);
+        const int lineH   = qRound(br.height());
 
-        // Convert to viewport coordinates using contentOffset (scroll + document margin)
-        int lineTopInViewport = qRound(blockRectInDocument.top() + viewportOffsetY);
-        int lineHeight = qRound(blockRectInDocument.height());
+        if (lineTop + lineH < event->rect().top()) {
+            block = block.next();
+            ++blockNum;
+            continue;
+        }
+        if (lineTop > event->rect().bottom()) break;
 
-        // Check if this line is visible within the current paint event's rectangle
-        if (lineTopInViewport + lineHeight >= event->rect().top() &&
-            lineTopInViewport <= event->rect().bottom()) {
-
-            QString number = QString::number(blockNumber + 1); // 1-indexed line number
-
-            int textHeight = painter.fontMetrics().height();
-            // Calculate Y position to center text vertically within the line's bounding box
-            int textY = lineTopInViewport + (lineHeight - textHeight) / 2 + painter.fontMetrics().ascent();
-
-            painter.drawText(0, textY - painter.fontMetrics().ascent(),
-                             width() - 5, // Leave a little padding from the right edge
-                             textHeight,
-                             Qt::AlignRight | Qt::AlignVCenter,
-                             number);
+        // Current-line gutter highlight
+        if (blockNum == cursorBlock) {
+            painter.fillRect(0, lineTop, width() - 1, lineH,
+                             m_bg.lightness() < 128
+                             ? m_bg.lighter(130)
+                             : m_bg.darker(108));
+            painter.setPen(m_currentFg);
+        } else {
+            painter.setPen(m_fg);
         }
 
-        // Optimization: If the current block's top is already past the paint event's bottom,
-        // we can stop processing blocks
-        if (lineTopInViewport > event->rect().bottom() && blockNumber > 0) {
-            break;
-        }
+        const QFontMetrics fm(font);
+        const int textH = fm.height();
+        const int textY = lineTop + (lineH - textH) / 2 + fm.ascent();
+
+        painter.drawText(0, textY - fm.ascent(),
+                         width() - 5, textH,
+                         Qt::AlignRight | Qt::AlignVCenter,
+                         QString::number(blockNum + 1));
 
         block = block.next();
-        blockNumber++;
+        ++blockNum;
     }
 }

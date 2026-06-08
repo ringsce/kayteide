@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2C3E7A"/>
+      <stop offset="100%" stop-color="#1a2550"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5BC8F5"/>
+      <stop offset="100%" stop-color="#2980D9"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded square -->
+  <rect width="256" height="256" rx="48" ry="48" fill="url(#bg)"/>
+  <!-- Terminal prompt chevron -->
+  <path d="M 44 110 L 80 128 L 44 146" fill="none" stroke="#5BC8F5" stroke-width="14"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Underline / cursor bar -->
+  <rect x="96" y="136" width="68" height="12" rx="6" fill="#5BC8F5" opacity="0.7"/>
+  <!-- K letterform -->
+  <path d="M 140 58 L 140 198 M 140 128 L 195 58 M 140 128 L 195 198"
+        fill="none" stroke="url(#accent)" stroke-width="20"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

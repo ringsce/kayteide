@@ -1,5 +1,81 @@
-<RCC>
+<!DOCTYPE RCC>
+<RCC version="1.0">
+
+    <!--
+        KayteIDE Icon Resources
+        ========================
+        Icons: KDE Breeze icon set (LGPL 2.1)
+        https://github.com/KDE/breeze-icons
+
+        App icon: custom KayteIDE branding (MIT)
+
+        Usage in C++:
+            QIcon::fromTheme("document-new")  // uses system theme
+            QIcon(":/icons/22/document-new.png")  // direct resource path
+            QIcon(":/app-icon")  // application icon
+    -->
+
+    <!-- ── Application icon ───────────────────────────────────────────── -->
     <qresource prefix="/">
-        <file>kayte.png</file>
-        </qresource>
+        <file alias="app-icon">icons/22/app-icon.svg</file>
+    </qresource>
+
+    <!-- ── Theme icons (22×22) ───────────────────────────────────────── -->
+    <qresource prefix="/icons/22">
+        <!-- File operations -->
+        <file alias="document-new">icons/22/document-new.png</file>
+        <file alias="document-open">icons/22/document-open.png</file>
+        <file alias="document-save">icons/22/document-save.png</file>
+        <file alias="document-save-as">icons/22/document-save-as.png</file>
+        <file alias="document-close">icons/22/document-close.png</file>
+
+        <!-- Edit -->
+        <file alias="edit-cut">icons/22/edit-cut.png</file>
+        <file alias="edit-copy">icons/22/edit-copy.png</file>
+        <file alias="edit-paste">icons/22/edit-paste.png</file>
+        <file alias="edit-select-all">icons/22/edit-select-all.png</file>
+        <file alias="edit-undo">icons/22/edit-undo.png</file>
+        <file alias="edit-redo">icons/22/edit-redo.png</file>
+        <file alias="edit-find">icons/22/edit-find.png</file>
+        <file alias="edit-clear">icons/22/edit-clear.png</file>
+
+        <!-- Build and Run -->
+        <file alias="run-build">icons/22/run-build.png</file>
+        <file alias="run-build-clean">icons/22/run-build-clean.png</file>
+        <file alias="run-build-configure">icons/22/run-build-configure.png</file>
+        <file alias="system-run">icons/22/system-run.png</file>
+        <file alias="media-playback-start">icons/22/media-playback-start.png</file>
+        <file alias="debug-run">icons/22/debug-run.png</file>
+        <file alias="tools-debugger">icons/22/tools-debugger.png</file>
+
+        <!-- Project and folders -->
+        <file alias="folder">icons/22/folder.png</file>
+        <file alias="folder-new">icons/22/folder-new.png</file>
+        <file alias="new-project">icons/22/new-project.png</file>
+
+        <!-- Version control -->
+        <file alias="vcs-commit">icons/22/vcs-commit.png</file>
+        <file alias="vcs-update-required">icons/22/vcs-update-required.png</file>
+        <file alias="git">icons/22/git.png</file>
+        <file alias="svn">icons/22/svn.png</file>
+
+        <!-- View and tabs -->
+        <file alias="tab-close">icons/22/tab-close.png</file>
+        <file alias="view-split-left-right">icons/22/view-split.png</file>
+
+        <!-- Application -->
+        <file alias="help-about">icons/22/help-about.png</file>
+        <file alias="application-exit">icons/22/application-exit.png</file>
+
+        <!-- Preferences -->
+        <file alias="preferences-system">icons/22/preferences-system.png</file>
+        <file alias="preferences-desktop-keyboard">icons/22/preferences-desktop-keyboard.png</file>
+
+    </qresource>
+
+    <!-- ── Font Awesome (optional – place TTF in fonts/ and re-run cmake) ── -->
+    <!-- <qresource>
+        <file alias="fa-solid-900.ttf">fonts/fa-solid-900.ttf</file>
+    </qresource> -->
+
 </RCC>

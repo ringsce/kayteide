@@ -27,6 +27,10 @@ int main(int argc, char *argv[])
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 
+    // Required by Qt WebEngine (welcome-page browser view) before QApplication
+    // is constructed.
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+
     QSurfaceFormat fmt;
     fmt.setSamples(4);
     QSurfaceFormat::setDefaultFormat(fmt);

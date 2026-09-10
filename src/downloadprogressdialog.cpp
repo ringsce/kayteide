@@ -152,9 +152,9 @@ void DownloadProgressDialog::checkNextTool()
     if (currentSystemToolCheckIndex < systemToolsRequired.size()) {
         QString tool = systemToolsRequired.at(currentSystemToolCheckIndex);
         setStatus(tr("Checking for tool: %1 (via Homebrew)...").arg(tool));
-        log(tr("Running: brew list %1").arg(tool));
+        log(tr("Running: %1 list %2").arg(brewExecutablePath, tool));
 
-        process->start("brew", QStringList() << "list" << tool);
+        process->start(brewExecutablePath, QStringList() << "list" << tool);
     } else {
         // All individual tools checked
         setStatus(tr("All system tool checks complete."));
@@ -177,7 +177,7 @@ void DownloadProgressDialog::installNextMissingTool()
     if (currentMissingToolInstallIndex < missingTools.size()) {
         QString toolToInstall = missingTools.at(currentMissingToolInstallIndex);
         setStatus(tr("Installing missing tool: %1").arg(toolToInstall));
-        log(tr("Running: brew install %1").arg(toolToInstall));
+        log(tr("Running: %1 install %2").arg(brewExecutablePath, toolToInstall));
 
         int originalCheckIndex = systemToolsRequired.indexOf(toolToInstall);
         if (originalCheckIndex != -1 && originalCheckIndex < ui->repoListWidget->count()) {
@@ -190,7 +190,7 @@ void DownloadProgressDialog::installNextMissingTool()
         connect(process, &QProcess::readyReadStandardOutput, this, &DownloadProgressDialog::handleProcessReadyReadStandardOutput);
         connect(process, &QProcess::readyReadStandardError, this, &DownloadProgressDialog::handleProcessReadyReadStandardError);
 
-        process->start("brew", QStringList() << "install" << toolToInstall);
+        process->start(brewExecutablePath, QStringList() << "install" << toolToInstall);
     } else {
         // All missing tools have been attempted for installation
         log(tr("\n--- Missing Tool Installation Attempt Complete ---"));
@@ -246,7 +246,10 @@ void DownloadProgressDialog::handleProcessFinished(int exitCode, QProcess::ExitS
             handleXcodeToolsCheckFinished(exitCode, exitStatus);
             break;
         case BrewCheckStage:
-            handleBrewCheckFinished(exitCode, exitStatus);
+            // Not reachable: startBrewCheck() now resolves Homebrew directly
+            // via findBrewExecutable() instead of spawning "which brew", so
+            // no QProcess::finished ever fires while in this stage.
+            log(tr("ERROR: Unexpected process finish in BrewCheckStage."));
             break;
         case BrewInstallStage:
             handleBrewInstallFinished(exitCode, exitStatus);
@@ -301,21 +304,29 @@ void DownloadProgressDialog::handleXcodeToolsCheckFinished(int exitCode, QProces
     }
 }
 
+QString DownloadProgressDialog::findBrewExecutable() const
+{
+    // Checked directly rather than via a spawned "which brew" process: the
+    // GUI app's own PATH (what QProcess::start() would search) generally
+    // doesn't include these directories when launched outside a shell, so an
+    // explicit candidate list is both simpler and more reliable.
+    return QStandardPaths::findExecutable(
+        QStringLiteral("brew"),
+        { QStringLiteral("/opt/homebrew/bin"),      // Apple Silicon
+          QStringLiteral("/usr/local/bin"),         // Intel Mac
+          QStringLiteral("/home/linuxbrew/.linuxbrew/bin") }); // Linuxbrew
+}
+
 void DownloadProgressDialog::startBrewCheck()
 {
     currentStage = BrewCheckStage;
     setStatus(tr("Checking for Homebrew..."));
-    log(tr("Running: which brew"));
-    process->start("which", QStringList() << "brew");
-}
+    log(tr("Looking for the brew executable..."));
 
-void DownloadProgressDialog::handleBrewCheckFinished(int exitCode, QProcess::ExitStatus exitStatus)
-{
-    Q_UNUSED(exitStatus);
-    if (exitCode == 0) {
-        log(tr("Homebrew is installed."));
+    brewExecutablePath = findBrewExecutable();
+    if (!brewExecutablePath.isEmpty()) {
+        log(tr("Homebrew found at: %1").arg(brewExecutablePath));
         homebrewIsInstalled = true;
-        setupProcessEnvironment(); // Ensure PATH is updated if brew was just found but not installed by us
         startToolChecks();
     } else {
         log(tr("Homebrew is NOT installed."));
@@ -350,6 +361,16 @@ void DownloadProgressDialog::handleBrewInstallFinished(int exitCode, QProcess::E
         log(tr("Homebrew installation completed successfully."));
         homebrewIsInstalled = true;
         setupProcessEnvironment(); // Important: Re-setup PATH to ensure brew commands are found
+        brewExecutablePath = findBrewExecutable();
+        if (brewExecutablePath.isEmpty()) {
+            log(tr("Homebrew was installed but its executable could not be located."));
+            QMessageBox::critical(this, tr("Homebrew Installation Failed"),
+                                  tr("Homebrew was installed but its executable could not be found. "
+                                     "Please restart the IDE."));
+            emit processAborted();
+            reject();
+            return;
+        }
         startToolChecks();
     } else {
         log(tr("Homebrew installation failed. Exit code: %1, Status: %2").arg(exitCode).arg(exitStatus));

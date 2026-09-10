@@ -40,7 +40,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(UPDATER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/updater")
 
 # ─── Qt 6 ─────────────────────────────────────────────────────────────────────
-find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Widgets Concurrent Network)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Widgets Concurrent Network WebEngineWidgets)
 
 # ─── libgit2 ──────────────────────────────────────────────────────────────────
 find_package(PkgConfig QUIET)
@@ -65,6 +65,39 @@ if(NOT LIBGIT2_FOUND)
     set(LIBGIT2_TARGET git2)
 else()
     set(LIBGIT2_TARGET ${LIBGIT2_LINK_LIBRARIES})
+endif()
+
+# ─── GTK4 (optional, alongside Qt6) ────────────────────────────────────────────
+# Qt6 remains the primary toolkit everywhere (KDE on Linux, and macOS). GTK4 is
+# additionally offered, behind KAYTE_GTK4_ENABLED, on:
+#   • Linux (any architecture)
+#   • macOS (any architecture)
+# It is never pulled in on other platforms (e.g. Windows, Android), and even on
+# Linux/macOS it only actually enables once pkg-config locates a real gtk4
+# installation below — this flag just decides whether we look. Mirrors
+# plugins/libreparser/CMakeLists.txt and plugins/project/CMakeLists.txt.
+set(KAYTE_GTK4_TARGET_PLATFORM FALSE)
+if(UNIX AND NOT APPLE AND NOT ANDROID)
+    set(KAYTE_GTK4_TARGET_PLATFORM TRUE)
+elseif(APPLE)
+    set(KAYTE_GTK4_TARGET_PLATFORM TRUE)
+endif()
+
+set(KAYTE_GTK4_AVAILABLE FALSE)
+if(KAYTE_GTK4_TARGET_PLATFORM)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(GTK4 QUIET IMPORTED_TARGET gtk4)
+        if(GTK4_FOUND)
+            set(KAYTE_GTK4_AVAILABLE TRUE)
+            message(STATUS "GTK4 ${GTK4_VERSION} found (${CMAKE_SYSTEM_PROCESSOR}) – enabling KAYTE_GTK4_ENABLED")
+        else()
+            message(STATUS "GTK4 not found via pkg-config – GTK4 integration disabled")
+        endif()
+    else()
+        message(STATUS "pkg-config not found – GTK4 integration disabled")
+    endif()
+else()
+    message(STATUS "GTK4 integration not applicable on this platform")
 endif()
 
 # ─── IconFontCppHeaders (Font Awesome 6 glyph → Unicode map) ──────────────────
@@ -196,9 +229,13 @@ set(PROJECT_SOURCES
         src/myjsontranslator.cpp
         src/downloadprogressdialog.cpp
         src/editortabwidget.cpp
+        src/welcometabwidget.cpp
         plugins/project/newprojectdialog.cpp
+        plugins/project/Gtk4NewProjectDialog.cpp
         src/widgetpalettedock.cpp
         src/uicanvaswidget.cpp
+        src/componentseditordock.cpp
+        src/propertyeditordock.cpp
 )
 
 set(PROJECT_HEADERS
@@ -213,12 +250,16 @@ set(PROJECT_HEADERS
         src/myjsontranslator.h
         src/downloadprogressdialog.h
         src/editortabwidget.h
+        src/welcometabwidget.h
         src/threads/threadmanager.h
         src/threads/posixthread.h
         src/keyboard.h
         plugins/project/newprojectdialog.h
+        plugins/project/Gtk4NewProjectDialog.h
         src/widgetpalettedock.h
         src/uicanvaswidget.h
+        src/componentseditordock.h
+        src/propertyeditordock.h
 )
 
 set(PROJECT_FORMS
@@ -285,6 +326,39 @@ else()
     endif()
 endif()
 
+# ─── pas2dox (optional Doxygen filter for Pascal/Delphi source) ───────────────
+# Pascal/Delphi isn't a language Doxygen understands natively; pas2dox
+# rewrites it into pseudo-C++ (classes, records-as-structs, enums, function
+# prototypes, converted comments) that Doxygen's C++ parser can pick up.
+# Only built when Flex is available - see plugins/pas2dox/CMakeLists.txt.
+#
+# On macOS, prefer Homebrew's genuine GNU flex over Apple's bundled
+# /usr/bin/flex (an older, modified fork) *before* find_package(FLEX) runs -
+# see the matching comment in plugins/pas2dox/CMakeLists.txt for why mixing
+# the two fails to compile. Must happen here too, not just in that
+# subdirectory's own CMakeLists.txt: once FLEX_EXECUTABLE is cached (by
+# whichever find_package(FLEX) runs first), the subdirectory's own
+# find_program() call is a no-op against an already-cached variable.
+if(APPLE)
+    find_program(FLEX_EXECUTABLE
+            NAMES flex
+            PATHS /opt/homebrew/opt/flex/bin /usr/local/opt/flex/bin
+            NO_DEFAULT_PATH)
+endif()
+find_package(FLEX QUIET)
+set(KAYTE_PAS2DOX_EXTENSION_MAPPING "")
+set(KAYTE_PAS2DOX_FILTER_PATTERNS "")
+if(FLEX_FOUND)
+    add_subdirectory(plugins/pas2dox)
+    set(KAYTE_PAS2DOX_EXECUTABLE "${CMAKE_BINARY_DIR}/bin/pas2dox")
+    set(KAYTE_PAS2DOX_EXTENSION_MAPPING "pas=C++ pp=C++ dpr=C++")
+    set(KAYTE_PAS2DOX_FILTER_PATTERNS
+            "*.pas=${KAYTE_PAS2DOX_EXECUTABLE} *.pp=${KAYTE_PAS2DOX_EXECUTABLE} *.dpr=${KAYTE_PAS2DOX_EXECUTABLE}")
+    message(STATUS "Flex found – building pas2dox and wiring it into Doxygen as a Pascal/Delphi filter")
+else()
+    message(STATUS "Flex not found – pas2dox (Pascal/Delphi Doxygen filter) will not be built")
+endif()
+
 # ─── Doxygen ──────────────────────────────────────────────────────────────────
 find_package(Doxygen QUIET)
 if(DOXYGEN_FOUND)
@@ -298,6 +372,9 @@ if(DOXYGEN_FOUND)
                 COMMENT "Generating API documentation with Doxygen"
                 VERBATIM
         )
+        if(FLEX_FOUND)
+            add_dependencies(docs pas2dox)
+        endif()
     else()
         message(WARNING "Doxyfile.in not found – skipping doc target.")
     endif()
@@ -329,6 +406,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Widgets
         Qt6::Concurrent
         Qt6::Network
+        Qt6::WebEngineWidgets
         KayteGitClient
         KayteIDE::SvnClient
 )
@@ -337,7 +415,13 @@ target_compile_definitions(${PROJECT_NAME}
         PRIVATE
         $<$<CONFIG:Debug>:QT_QML_DEBUG>
         KAYTEIDE_VERSION="${PROJECT_VERSION}"
+        $<$<BOOL:${KAYTE_GTK4_AVAILABLE}>:KAYTE_GTK4_ENABLED>
 )
+
+# ─── GTK4 linkage (Linux / macOS, when pkg-config locates gtk4) ───────────────
+if(KAYTE_GTK4_AVAILABLE)
+    target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::GTK4)
+endif()
 
 # ─── Android-specific properties ─────────────────────────────────────────────
 if(ANDROID)

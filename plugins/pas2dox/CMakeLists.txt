@@ -1,10 +1,32 @@
 # plugins/pas2dox/CMakeLists.txt
-# This CMakeLists.txt builds the pas2dox library
+#
+# Builds the `pas2dox` executable: a Pascal/Delphi -> pseudo-C++ filter
+# meant to be used as a Doxygen INPUT_FILTER / FILTER_PATTERNS program (see
+# ../../Doxyfile.in, where the top-level CMakeLists.txt wires this in
+# automatically when Flex is available).
 
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
-project(pas2dox_library LANGUAGES CXX) # Change project name to reflect library
+project(pas2dox LANGUAGES CXX)
 
-# Find the Flex tool
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Find the Flex tool.
+#
+# On macOS, prefer Homebrew's genuine GNU flex over Apple's bundled
+# /usr/bin/flex (an older, modified fork: `flex --version` reports "2.6.4
+# Apple(flex-35)") *before* find_package(Flex) runs its own search - Apple's
+# flex generates C++ scanner code (LexerInput/LexerOutput taking `size_t`)
+# that doesn't match the `int`-based FlexLexer.h signatures shipped by
+# Homebrew's flex, which is otherwise the only FlexLexer.h available on a
+# stock macOS system. Mixing the two fails to compile. If FLEX_EXECUTABLE is
+# already cached (e.g. set explicitly by the caller), this is a no-op.
+if(APPLE)
+    find_program(FLEX_EXECUTABLE
+            NAMES flex
+            PATHS /opt/homebrew/opt/flex/bin /usr/local/opt/flex/bin
+            NO_DEFAULT_PATH)
+endif()
 find_package(Flex REQUIRED)
 
 # Define the Flex source file (the .l file that Flex reads)
@@ -25,48 +47,58 @@ add_custom_command(
         VERBATIM
 )
 
-# Create the library target.
-# Compile both your main C++ file and the Flex-generated lexer source.
-# This MUST come BEFORE target_include_directories or target_link_libraries for this target.
-add_library(pas2dox_lib STATIC # <--- CHANGE: Create a STATIC library
+# Create the executable target. This MUST come BEFORE
+# target_include_directories / target_link_libraries for this target.
+add_executable(pas2dox
         ${PAS2DOX_MAIN_CPP_FILE}
         ${PAS2DOX_GENERATED_SOURCE}
 )
 
 # Add include directories for headers.
-target_include_directories(pas2dox_lib PRIVATE # <--- CHANGE: Target is now pas2dox_lib
-        ${CMAKE_CURRENT_SOURCE_DIR} # To find pasdoxflexlexer.h and globals.h
+target_include_directories(pas2dox PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR} # To find pasdoxflexlexer.h
 )
 
 # Add include directory for FlexLexer.h.
 if (FLEX_INCLUDE_DIRS)
-    target_include_directories(pas2dox_lib PRIVATE ${FLEX_INCLUDE_DIRS}) # <--- CHANGE: Target is now pas2dox_lib
+    target_include_directories(pas2dox PRIVATE ${FLEX_INCLUDE_DIRS})
 else()
     # Fallback if FindFlex doesn't set FLEX_INCLUDE_DIRS
-    set(FLEX_SPECIFIC_INCLUDE_DIR "/opt/homebrew/Cellar/flex/2.6.4_2/include")
-    target_include_directories(pas2dox_lib PRIVATE ${FLEX_SPECIFIC_INCLUDE_DIR}) # <--- CHANGE: Target is now pas2dox_lib
     find_path(FLEX_SYSTEM_INCLUDE_DIR FlexLexer.h
             PATHS
-            ${FLEX_SPECIFIC_INCLUDE_DIR}
-            /usr/local/include/FlexLexer
+            /opt/homebrew/opt/flex/include
+            /opt/homebrew/include
+            /usr/local/opt/flex/include
             /usr/local/include
             /usr/include
-            /opt/homebrew/include
             ${CMAKE_INSTALL_PREFIX}/include
             NO_CMAKE_FIND_ROOT_PATH)
     if (FLEX_SYSTEM_INCLUDE_DIR)
-        target_include_directories(pas2dox_lib PRIVATE ${FLEX_SYSTEM_INCLUDE_DIR}) # <--- CHANGE: Target is now pas2dox_lib
+        target_include_directories(pas2dox PRIVATE ${FLEX_SYSTEM_INCLUDE_DIR})
     else()
-        message(FATAL_ERROR "Could not find FlexLexer.h include directory. Please ensure Flex is installed or set FLEX_SPECIFIC_INCLUDE_DIR.")
+        message(FATAL_ERROR "Could not find FlexLexer.h include directory. Please ensure Flex is installed or set FLEX_INCLUDE_DIRS.")
     endif()
 endif()
 
 # Link libraries if needed. Flex-generated code often requires the Flex runtime library.
 if (FLEX_LIBRARIES)
-    target_link_libraries(pas2dox_lib PRIVATE ${FLEX_LIBRARIES}) # <--- CHANGE: Target is now pas2dox_lib
+    target_link_libraries(pas2dox PRIVATE ${FLEX_LIBRARIES})
 elseif (UNIX)
-    target_link_libraries(pas2dox_lib PRIVATE fl) # <--- CHANGE: Target is now pas2dox_lib
+    find_library(FLEX_RUNTIME_LIBRARY NAMES fl libfl)
+    if (FLEX_RUNTIME_LIBRARY)
+        target_link_libraries(pas2dox PRIVATE ${FLEX_RUNTIME_LIBRARY})
+    endif()
 endif()
 
-# Optional install rule (for the library)
-install(TARGETS pas2dox_lib DESTINATION lib) # <--- CHANGE: Install as a library
+set_target_properties(pas2dox PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        # This is a plain Flex/C++ tool with no Qt involvement - when built
+        # as part of the main KayteIDE project (which sets these ON
+        # globally), explicitly opt back out rather than silently pay for
+        # (harmless but pointless) MOC/UIC/RCC steps.
+        AUTOMOC OFF
+        AUTOUIC OFF
+        AUTORCC OFF
+)
+
+install(TARGETS pas2dox RUNTIME DESTINATION bin)

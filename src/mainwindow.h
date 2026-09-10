@@ -34,10 +34,13 @@
 #include "GitClientPanel.hpp"
 #include "widgetpalettedock.h"
 #include "uicanvaswidget.h"
+#include "componentseditordock.h"
+#include "propertyeditordock.h"
 
 
 class LineNumberArea;
 class EditorTabWidget;
+class WelcomeTabWidget;
 
 #include "vbsyntaxhighlighter.h"
 #include "cppsyntaxhighlighter.h"
@@ -128,6 +131,7 @@ private slots:
     // ── Tools menu (SVN + Git) ────────────────────────────────────────────────
     void setupToolsMenu();
     void setCurrentProjectPath(const QString &path);
+    void launchUpdater();
 
     // ── Terminal dock ─────────────────────────────────────────────────────────
     void onToggleTerminal();
@@ -174,6 +178,10 @@ private:
     void                       createNewTab(const QString &filePath = QString());
     bool                       saveCurrentFile();
 
+    // ── Welcome tab (Qt WebEngine start page) ──────────────────────────────────
+    WelcomeTabWidget *m_welcomeTab { nullptr };
+    void               showWelcomeTab();
+
     // ── Project panel (left dock) ──────────────────────────────────────────────
     QDockWidget            *m_projectDock        { nullptr };
     QTreeView              *m_projectTree        { nullptr };
@@ -217,6 +225,12 @@ private:
     UiCanvasWidget    *m_canvas        { nullptr };
     QAction           *m_actPalette    { nullptr };
     QAction           *m_actDesigner   { nullptr };
+
+    // ── Components editor (left) + Property editor (right) ────────────────────
+    ComponentsEditorDock *m_componentsDock { nullptr };
+    PropertyEditorDock   *m_propertyDock   { nullptr };
+    QAction              *m_actComponents  { nullptr };
+    QAction              *m_actProperties  { nullptr };
 
     // ── Project persistence ───────────────────────────────────────────────────
     QString m_currentProjectFilePath;

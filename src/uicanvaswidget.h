@@ -42,6 +42,17 @@ public:
     void       clearCanvas();
     QUndoStack *undoStack() { return m_undoStack; }
 
+    // ── Read access for side panels (Components / Property editors) ───────────
+    const QList<CanvasItem> &items() const { return m_items; }
+    int  selectedIndex() const { return m_selectedIndex; }
+
+    // Select from outside (e.g. a click in the Components editor list)
+    void selectItemExternally(int index) { selectItem(index); update(); }
+
+    // Apply edits made in the Property editor to the selected item
+    void applyItemEdits(int index, const QString &objectName,
+                         const QString &labelText, const QRect &geometry);
+
 signals:
     void itemSelectionChanged(const CanvasItem *item); // nullptr = nothing selected
     void canvasModified();

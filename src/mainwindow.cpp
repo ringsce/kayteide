@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "welcometabwidget.h"
 
 // Qt Includes
 #include <QFileDialog>
@@ -229,7 +230,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->tabWidgetEditor, &QTabWidget::tabCloseRequested,
             this, &MainWindow::on_tabWidgetEditor_tabCloseRequested);
 
-    createNewTab();
+    showWelcomeTab();
 
     // --- File paths ---
     defaultDownloadPath = QDir::homePath() + QDir::separator() + "KayteIDE_Resources";
@@ -388,6 +389,18 @@ void MainWindow::setupWidgetPalette()
     addDockWidget(Qt::RightDockWidgetArea, m_designerDock);
     m_designerDock->hide();
 
+    // ── Components editor (left, tabbed with the palette) ─────────────────────
+    m_componentsDock = new ComponentsEditorDock(m_canvas, this);
+    addDockWidget(Qt::LeftDockWidgetArea, m_componentsDock);
+    tabifyDockWidget(m_paletteDock, m_componentsDock);
+    m_componentsDock->hide();
+
+    // ── Property editor (right, next to the designer canvas) ──────────────────
+    m_propertyDock = new PropertyEditorDock(m_canvas, this);
+    addDockWidget(Qt::RightDockWidgetArea, m_propertyDock);
+    splitDockWidget(m_designerDock, m_propertyDock, Qt::Horizontal);
+    m_propertyDock->hide();
+
     // ── Toolbar buttons ───────────────────────────────────────────────────────
     QToolBar *tb = addToolBar(tr("UI Designer"));
     tb->setObjectName(QStringLiteral("UiDesignerToolBar"));
@@ -416,6 +429,30 @@ void MainWindow::setupWidgetPalette()
     connect(m_actDesigner, &QAction::triggered, this, &MainWindow::onToggleWidgetPalette);
     tb->addAction(m_actDesigner);
 
+#if __has_include(<IconsFontAwesome6.h>)
+    m_actComponents = new QAction(QString::fromUtf8(ICON_FA_SITEMAP), this);
+    m_actComponents->setFont(m_faFont);
+    m_actProperties = new QAction(QString::fromUtf8(ICON_FA_SLIDERS), this);
+    m_actProperties->setFont(m_faFont);
+#else
+    m_actComponents = new QAction(tr("[Components]"), this);
+    m_actProperties = new QAction(tr("[Properties]"), this);
+#endif
+
+    m_actComponents->setToolTip(tr("Toggle Components editor"));
+    m_actComponents->setStatusTip(tr("Show / hide the list of components on the current form"));
+    m_actComponents->setCheckable(true);
+    m_actComponents->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_C));
+    connect(m_actComponents, &QAction::triggered, this, &MainWindow::onToggleWidgetPalette);
+    tb->addAction(m_actComponents);
+
+    m_actProperties->setToolTip(tr("Toggle Property editor"));
+    m_actProperties->setStatusTip(tr("Show / hide the property editor for the selected component"));
+    m_actProperties->setCheckable(true);
+    m_actProperties->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R));
+    connect(m_actProperties, &QAction::triggered, this, &MainWindow::onToggleWidgetPalette);
+    tb->addAction(m_actProperties);
+
     // Mirror in View menu
     QMenu *viewMenu = nullptr;
     for (QAction *a : menuBar()->actions())
@@ -429,18 +466,26 @@ void MainWindow::setupWidgetPalette()
     viewMenu->addSeparator();
     viewMenu->addAction(m_actPalette);
     viewMenu->addAction(m_actDesigner);
+    viewMenu->addAction(m_actComponents);
+    viewMenu->addAction(m_actProperties);
 
     // Keep actions in sync with dock visibility
-    connect(m_paletteDock,  &QDockWidget::visibilityChanged, m_actPalette,  &QAction::setChecked);
-    connect(m_designerDock, &QDockWidget::visibilityChanged, m_actDesigner, &QAction::setChecked);
+    connect(m_paletteDock,    &QDockWidget::visibilityChanged, m_actPalette,    &QAction::setChecked);
+    connect(m_designerDock,   &QDockWidget::visibilityChanged, m_actDesigner,   &QAction::setChecked);
+    connect(m_componentsDock, &QDockWidget::visibilityChanged, m_actComponents, &QAction::setChecked);
+    connect(m_propertyDock,   &QDockWidget::visibilityChanged, m_actProperties, &QAction::setChecked);
 }
 
 void MainWindow::onToggleWidgetPalette()
 {
-    const bool showPalette  = m_actPalette  ? m_actPalette->isChecked()  : !m_paletteDock->isVisible();
-    const bool showDesigner = m_actDesigner ? m_actDesigner->isChecked() : !m_designerDock->isVisible();
+    const bool showPalette    = m_actPalette     ? m_actPalette->isChecked()     : !m_paletteDock->isVisible();
+    const bool showDesigner   = m_actDesigner    ? m_actDesigner->isChecked()    : !m_designerDock->isVisible();
+    const bool showComponents = m_actComponents  ? m_actComponents->isChecked()  : !m_componentsDock->isVisible();
+    const bool showProperties = m_actProperties  ? m_actProperties->isChecked()  : !m_propertyDock->isVisible();
     m_paletteDock->setVisible(showPalette);
     m_designerDock->setVisible(showDesigner);
+    m_componentsDock->setVisible(showComponents);
+    m_propertyDock->setVisible(showProperties);
 }
 
 void MainWindow::onExportUiFile()
@@ -484,9 +529,11 @@ void MainWindow::onNewUiFile()
         if (btn != QMessageBox::Yes) return;
     }
     if (m_canvas) m_canvas->clearCanvas();
-    // Show both docks so the user can start designing immediately
-    if (m_paletteDock)  { m_paletteDock->show();  m_paletteDock->raise(); }
-    if (m_designerDock) { m_designerDock->show(); m_designerDock->raise(); }
+    // Show all designer docks so the user can start designing immediately
+    if (m_paletteDock)    { m_paletteDock->show();    m_paletteDock->raise(); }
+    if (m_designerDock)   { m_designerDock->show();   m_designerDock->raise(); }
+    if (m_componentsDock) { m_componentsDock->show(); m_componentsDock->raise(); }
+    if (m_propertyDock)   { m_propertyDock->show();   m_propertyDock->raise(); }
     statusBar()->showMessage(tr("New form – drag widgets from the palette onto the canvas"), 5000);
 }
 
@@ -819,6 +866,15 @@ void MainWindow::setupToolsMenu()
 
     toolsMenu->addSeparator();
 
+    // ── Updater ───────────────────────────────────────────────────────────────
+    QAction *updaterAction = toolsMenu->addAction(
+        QIcon::fromTheme("system-software-update", QIcon(":/icons/22/vcs-update-required")),
+        tr("&Updater…"));
+    updaterAction->setStatusTip(tr("Launch KayteIDEUpdater to check for and build updates"));
+    connect(updaterAction, &QAction::triggered, this, &MainWindow::launchUpdater);
+
+    toolsMenu->addSeparator();
+
     // ── Keyboard shortcuts reference ─────────────────────────────────────────
     QAction *kbAction = toolsMenu->addAction(
         QIcon::fromTheme("preferences-desktop-keyboard", QIcon(":/icons/22/preferences-desktop-keyboard")),
@@ -853,6 +909,43 @@ void MainWindow::setCurrentProjectPath(const QString &path)
         m_gitPanel->openRepository(path);
     // Keep the project panel in sync whenever the active project changes.
     setProjectRoot(path);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Updater launcher
+// ─────────────────────────────────────────────────────────────────────────────
+
+void MainWindow::launchUpdater()
+{
+    // KayteIDEUpdater is built and placed right alongside KayteIDE itself:
+    // on macOS it's embedded in the same .app/Contents/MacOS directory (see
+    // the POST_BUILD step in CMakeLists.txt), and on Linux/dev builds both
+    // executables land in the same RUNTIME_OUTPUT_DIRECTORY (build/bin, or
+    // CMAKE_INSTALL_BINDIR once packaged) — so applicationDirPath() finds it
+    // in every case without needing platform-specific bundle logic here.
+    const QString updaterName = QStringLiteral("KayteIDEUpdater")
+#ifdef Q_OS_WIN
+        + QStringLiteral(".exe")
+#endif
+        ;
+    const QString updaterPath = QDir(QCoreApplication::applicationDirPath())
+                                     .filePath(updaterName);
+
+    if (!QFile::exists(updaterPath)) {
+        QMessageBox::warning(this, tr("Updater Not Found"),
+            tr("Could not find KayteIDEUpdater at:\n%1\n\n"
+               "Make sure the KayteIDEUpdater target has been built.")
+                .arg(updaterPath));
+        return;
+    }
+
+    if (!QProcess::startDetached(updaterPath, {})) {
+        QMessageBox::warning(this, tr("Updater Failed to Start"),
+            tr("Failed to launch KayteIDEUpdater at:\n%1").arg(updaterPath));
+        return;
+    }
+
+    statusBar()->showMessage(tr("Launched KayteIDEUpdater"), 4000);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1332,6 +1425,31 @@ void MainWindow::onTabClosed(QObject *obj)
         qDebug() << "EditorTabWidget destroyed for file:" << tab->filePath();
 }
 
+void MainWindow::showWelcomeTab()
+{
+    if (m_welcomeTab) {
+        int idx = ui->tabWidgetEditor->indexOf(m_welcomeTab);
+        if (idx >= 0) {
+            ui->tabWidgetEditor->setCurrentIndex(idx);
+            return;
+        }
+        m_welcomeTab = nullptr; // was closed – fall through and recreate
+    }
+
+    m_welcomeTab = new WelcomeTabWidget(ui->tabWidgetEditor);
+    connect(m_welcomeTab, &WelcomeTabWidget::newFileRequested,
+            this, &MainWindow::on_actionNewFile_triggered);
+    connect(m_welcomeTab, &WelcomeTabWidget::openFileRequested,
+            this, &MainWindow::handleOpenFileTriggered);
+    connect(m_welcomeTab, &WelcomeTabWidget::newProjectRequested,
+            this, &MainWindow::on_actionNewProject_triggered);
+    connect(m_welcomeTab, &WelcomeTabWidget::openProjectRequested,
+            this, &MainWindow::onOpenProjectFolder);
+
+    int index = ui->tabWidgetEditor->addTab(m_welcomeTab, tr("Welcome"));
+    ui->tabWidgetEditor->setCurrentIndex(index);
+}
+
 void MainWindow::createNewTab(const QString &filePath)
 {
     // If the user asks for a NEW Untitled tab and the current tab is already
@@ -1609,8 +1727,19 @@ void MainWindow::on_actionCloseTab_triggered()
 void MainWindow::on_tabWidgetEditor_tabCloseRequested(int index)
 {
     if (index < 0 || index >= ui->tabWidgetEditor->count()) return;
-    EditorTabWidget *tab = qobject_cast<EditorTabWidget*>(ui->tabWidgetEditor->widget(index));
-    if (!tab) return;
+
+    QWidget *widget = ui->tabWidgetEditor->widget(index);
+    EditorTabWidget *tab = qobject_cast<EditorTabWidget*>(widget);
+    if (!tab) {
+        // Non-editor tab (e.g. the Welcome page) — nothing to save, just close it.
+        if (widget == m_welcomeTab)
+            m_welcomeTab = nullptr;
+        ui->tabWidgetEditor->removeTab(index);
+        widget->deleteLater();
+        if (ui->tabWidgetEditor->count() == 0)
+            createNewTab();
+        return;
+    }
 
     ui->tabWidgetEditor->setCurrentIndex(index);
 

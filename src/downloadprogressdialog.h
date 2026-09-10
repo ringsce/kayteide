@@ -61,7 +61,6 @@ private slots:
 
     // Stage-specific handlers for QProcess::finished
     void handleXcodeToolsCheckFinished(int exitCode, QProcess::ExitStatus exitStatus);
-    void handleBrewCheckFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void handleBrewInstallFinished(int exitCode, QProcess::ExitStatus exitStatus); // New dedicated slot for Brew install
     void handleToolCheckFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void handleToolInstallFinished(int exitCode, QProcess::ExitStatus exitStatus);
@@ -87,9 +86,18 @@ private:
 
 
     bool homebrewIsInstalled; // Track Homebrew status
+    // Absolute path to the brew executable. QProcess::start() resolves a bare
+    // program name ("brew") against the *calling* process's own PATH, not the
+    // custom QProcessEnvironment set via setupProcessEnvironment() below — so
+    // on a GUI app launched without Homebrew's PATH entries (e.g. from
+    // Finder), a bare "brew" fails with an execve/ENOENT error. Resolving the
+    // absolute path once here and always starting that path instead avoids
+    // relying on PATH resolution for the child process at all.
+    QString brewExecutablePath;
 
     // Helper functions for various stages
     void setupProcessEnvironment(); // Sets up PATH etc.
+    QString findBrewExecutable() const; // Locates brew without spawning a process
     void startXcodeToolsCheck();
     void startBrewCheck();
     void startBrewInstall();

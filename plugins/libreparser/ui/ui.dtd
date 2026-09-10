@@ -1,0 +1,20 @@
+<!--
+  ui.dtd — grammar for KayteIDE "window" dialog descriptors.
+  An instance document looks like ui/sample.xml.
+-->
+<!ELEMENT window (title, content, actions)>
+<!ATTLIST window
+    id ID #REQUIRED
+>
+
+<!ELEMENT title (#PCDATA)>
+
+<!ELEMENT content (text+)>
+<!ELEMENT text (#PCDATA)>
+
+<!ELEMENT actions (button+)>
+<!ELEMENT button (#PCDATA)>
+<!ATTLIST button
+    id      ID    #REQUIRED
+    onclick CDATA #IMPLIED
+>

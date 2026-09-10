@@ -1,4 +1,9 @@
 CMakeLists.txt.user
+.idea/
+Jenkinsfile
 .DS_Store
 docs
+.qtcreator/
+ci/
+build/
 

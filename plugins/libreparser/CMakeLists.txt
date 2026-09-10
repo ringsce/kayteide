@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21 FATAL_ERROR)
 
-project(Project_Dialog LANGUAGES CXX C)
+project(libreparser LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -18,7 +18,6 @@ find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Widgets)
 # It is never pulled in on other platforms (e.g. Windows, Android), and even on
 # Linux/macOS it only actually enables once pkg-config locates a real gtk4
 # installation below — this flag just decides whether we look.
-# Mirrors plugins/libreparser/CMakeLists.txt.
 set(KAYTE_GTK4_TARGET_PLATFORM FALSE)
 if(UNIX AND NOT APPLE AND NOT ANDROID)
     set(KAYTE_GTK4_TARGET_PLATFORM TRUE)
@@ -41,34 +40,35 @@ if(KAYTE_GTK4_TARGET_PLATFORM)
         message(STATUS "pkg-config not found – GTK4 integration disabled")
     endif()
 else()
-    message(STATUS "GTK4 integration not applicable on this platform")
+    message(STATUS "GTK4 integration not applicable on this platform/architecture")
 endif()
 
-qt_add_executable(project_dialog
-        main.cpp
-        newprojectdialog.h
-        newprojectdialog.cpp
-        newprojectdialog.ui
-        Gtk4NewProjectDialog.h
-        Gtk4NewProjectDialog.cpp
+qt_add_executable(libreparser
+        src/main.cpp
+        src/UiXmlDocument.h
+        src/UiXmlDocument.cpp
+        src/XmlEditorWindow.h
+        src/XmlEditorWindow.cpp
+        src/Gtk4Editor.h
+        src/Gtk4Editor.cpp
 )
 
-target_include_directories(project_dialog PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(libreparser PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(project_dialog PRIVATE
+target_link_libraries(libreparser PRIVATE
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
 )
 
-target_compile_definitions(project_dialog PRIVATE
+target_compile_definitions(libreparser PRIVATE
         $<$<BOOL:${KAYTE_GTK4_AVAILABLE}>:KAYTE_GTK4_ENABLED>
 )
 
 if(KAYTE_GTK4_AVAILABLE)
-    target_link_libraries(project_dialog PRIVATE PkgConfig::GTK4)
+    target_link_libraries(libreparser PRIVATE PkgConfig::GTK4)
 endif()
 
-set_target_properties(project_dialog PROPERTIES
+set_target_properties(libreparser PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )

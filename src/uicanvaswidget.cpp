@@ -147,6 +147,18 @@ void UiCanvasWidget::moveItem(int index, QPoint topLeft)
     emit canvasModified();
 }
 
+void UiCanvasWidget::applyItemEdits(int index, const QString &objectName,
+                                     const QString &labelText, const QRect &geometry)
+{
+    if (index < 0 || index >= m_items.size()) return;
+    m_items[index].objectName = objectName;
+    m_items[index].labelText  = labelText;
+    m_items[index].geometry   = geometry;
+    update();
+    emit canvasModified();
+    emit itemSelectionChanged(&m_items[index]);
+}
+
 void UiCanvasWidget::clearCanvas()
 {
     m_items.clear();

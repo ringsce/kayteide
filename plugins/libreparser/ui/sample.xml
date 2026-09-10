@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE window SYSTEM "ui.dtd">
+<window id="main_win">
+    <title>User Settings</title>
+    <content>
+        <text>Do you want to save changes?</text>
+    </content>
+    <actions>
+        <button id="btn_save" onclick="saveData()">Save</button>
+        <button id="btn_cancel" onclick="closeWin()">Cancel</button>
+    </actions>
+</window>

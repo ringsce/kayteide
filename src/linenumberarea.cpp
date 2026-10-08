@@ -4,6 +4,10 @@
 #include <QScrollBar>
 #include <QAbstractTextDocumentLayout>
 #include <QDebug>
+#include <QHelpEvent>
+#include <QTextLayout>
+#include <QToolTip>
+#include "modebar.h"   // ModeBar::drawIcon — the same outline bug as the mode bar
 
 // ─────────────────────────────────────────────────────────────────────────────
 LineNumberArea::LineNumberArea(QPlainTextEdit *editor, QWidget *parent)
@@ -72,8 +76,8 @@ void LineNumberArea::updateWidth(int blockCount)
 
     const int bc      = blockCount > 0 ? blockCount : m_codeEditor->blockCount();
     int       digits  = qMax(2, QString::number(qMax(1, bc)).length());
-    const int charW   = fontMetrics().horizontalAdvance(QLatin1Char('9'));
-    const int newW    = 3 + charW * digits + 10;
+    const int charW   = QFontMetrics(m_codeEditor->font()).horizontalAdvance(QLatin1Char('9'));
+    const int newW    = kIconColumn + 3 + charW * digits + 10;
 
     // setViewportMargins is protected on QPlainTextEdit.
     // If the editor is a CodeEditor we can call it directly via the using-declaration.
@@ -120,76 +124,95 @@ QSize LineNumberArea::sizeHint() const
     if (!m_codeEditor) return { 0, 0 };
 
     int digits = qMax(2, QString::number(qMax(1, m_codeEditor->blockCount())).length());
-    int w      = 3 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits + 10;
+    int w      = kIconColumn + 3 + QFontMetrics(m_codeEditor->font()).horizontalAdvance(QLatin1Char('9')) * digits + 10;
     return { w, 0 };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 void LineNumberArea::paintEvent(QPaintEvent *event)
 {
-    if (!m_codeEditor || !m_codeEditor->document()) {
-        QPainter painter(this);
-        painter.fillRect(event->rect(), m_bg);
-        return;
-    }
-
     QPainter painter(this);
     painter.fillRect(event->rect(), m_bg);
+    if (!m_codeEditor || !m_codeEditor->document()) return;
 
-    // Right border divider
-    painter.setPen(QPen(m_fg.darker(130), 1));
-    painter.drawLine(width() - 1, event->rect().top(),
-                     width() - 1, event->rect().bottom());
+    painter.setPen(QPen(m_bg.lightness() < 128 ? m_bg.lighter(140) : m_bg.darker(115), 1));
+    painter.drawLine(width() - 1, event->rect().top(), width() - 1, event->rect().bottom());
 
-    QFont  font = m_codeEditor->font();
+    const QFont font = m_codeEditor->font();
     painter.setFont(font);
+    const QFontMetrics fm(font);
 
-    // Current cursor block number for highlight
-    const int cursorBlock = m_codeEditor->textCursor().blockNumber();
+    // cursorRect() is in viewport coordinates; map them into ours, so the
+    // numbers line up whether the gutter sits beside the editor or inside it.
+    const int yOffset = m_codeEditor->viewport()->mapTo(window(), QPoint(0, 0)).y()
+                      - mapTo(window(), QPoint(0, 0)).y();
+    const int viewportH  = m_codeEditor->viewport()->height();
+    const int cursorLine = m_codeEditor->textCursor().blockNumber();
 
-    // Scroll offset: use the public document-layout approach so we never
-    // need firstVisibleBlock() or contentOffset() (both protected).
-    const qreal scrollY   = m_codeEditor->verticalScrollBar()->value();
-    const qreal docMargin = m_codeEditor->document()->documentMargin();
-    const qreal offsetY   = -scrollY + docMargin;
-
-    QTextBlock block      = m_codeEditor->document()->firstBlock();
-    int        blockNum   = 0;
-
+    // Start at the first visible line and walk down until we leave the view.
+    QTextBlock block = m_codeEditor->cursorForPosition(QPoint(0, 0)).block();
     while (block.isValid()) {
-        const QRectF br   = m_codeEditor->document()
-                            ->documentLayout()->blockBoundingRect(block);
-        const int lineTop = qRound(br.top() + offsetY);
-        const int lineH   = qRound(br.height());
-
-        if (lineTop + lineH < event->rect().top()) {
-            block = block.next();
-            ++blockNum;
-            continue;
+        const QRect lineRect = m_codeEditor->cursorRect(QTextCursor(block));
+        if (lineRect.top() > viewportH) break;
+        if (block.isVisible()) {
+            // A wrapped line spans several rows; its number sits on the first.
+            const int top = lineRect.top() + yOffset;
+            const int h   = qMax(lineRect.height(), fm.height());
+            if (top + h >= event->rect().top() && top <= event->rect().bottom()) {
+                if (block.blockNumber() == cursorLine) {
+                    painter.fillRect(0, top, width() - 1, h,
+                                     m_bg.lightness() < 128 ? m_bg.lighter(130) : m_bg.darker(108));
+                    painter.setPen(m_currentFg);
+                } else {
+                    painter.setPen(m_fg);
+                }
+                painter.drawText(0, top, width() - 6, h, Qt::AlignRight | Qt::AlignVCenter,
+                                 QString::number(block.blockNumber() + 1));
+                if (const auto it = m_markers.constFind(block.blockNumber()); it != m_markers.cend()) {
+                    const int s = qMin(14, h);
+                    const QColor c = it->error ? QColor(0xe5, 0x48, 0x4d) : QColor(0xd9, 0xa4, 0x00);
+                    painter.save();
+                    ModeBar::drawIcon(painter, ModeBar::Debug, QRectF(1, top + (h - s) / 2.0, s, s), c, m_bg);
+                    painter.restore();
+                }
+            }
         }
-        if (lineTop > event->rect().bottom()) break;
-
-        // Current-line gutter highlight
-        if (blockNum == cursorBlock) {
-            painter.fillRect(0, lineTop, width() - 1, lineH,
-                             m_bg.lightness() < 128
-                             ? m_bg.lighter(130)
-                             : m_bg.darker(108));
-            painter.setPen(m_currentFg);
-        } else {
-            painter.setPen(m_fg);
-        }
-
-        const QFontMetrics fm(font);
-        const int textH = fm.height();
-        const int textY = lineTop + (lineH - textH) / 2 + fm.ascent();
-
-        painter.drawText(0, textY - fm.ascent(),
-                         width() - 5, textH,
-                         Qt::AlignRight | Qt::AlignVCenter,
-                         QString::number(blockNum + 1));
-
         block = block.next();
-        ++blockNum;
     }
+}
+
+void LineNumberArea::setMarkers(const QMap<int, Marker> &byBlockNumber)
+{
+    m_markers = byBlockNumber;
+    update();
+}
+
+int LineNumberArea::blockAt(int y) const
+{
+    if (!m_codeEditor) return -1;
+    const int yOffset = m_codeEditor->viewport()->mapTo(window(), QPoint(0, 0)).y()
+                      - mapTo(window(), QPoint(0, 0)).y();
+    QTextBlock block = m_codeEditor->cursorForPosition(QPoint(0, 0)).block();
+    for (; block.isValid(); block = block.next()) {
+        const QRect r = m_codeEditor->cursorRect(QTextCursor(block));
+        const int top = r.top() + yOffset;
+        if (top > height()) break;
+        const int bottom = top + qRound(block.layout()->boundingRect().height());
+        if (y >= top && y < qMax(bottom, top + r.height())) return block.blockNumber();
+    }
+    return -1;
+}
+
+bool LineNumberArea::event(QEvent *e)
+{
+    if (e->type() == QEvent::ToolTip) {
+        auto *he = static_cast<QHelpEvent *>(e);
+        const auto it = m_markers.constFind(blockAt(he->pos().y()));
+        if (it != m_markers.cend())
+            QToolTip::showText(he->globalPos(), it->text, this);
+        else
+            QToolTip::hideText();
+        return true;
+    }
+    return QWidget::event(e);
 }

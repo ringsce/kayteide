@@ -134,7 +134,9 @@ void GitClientPanel::setupConnections() {
     connect(m_repo, &GitRepository::statusChanged,   this, &GitClientPanel::refreshStatus);
     connect(m_repo, &GitRepository::operationStarted, this, [this](const QString &desc) {
         m_statusLabel->setText(desc);
-        QApplication::setOverrideCursor(Qt::WaitCursor);
+        // Busy state without a wait cursor: Qt 6.11 on macOS 27 crashes
+        // building non-native cursors (QTBUG-150017).
+        m_toolbar->setEnabled(false);
     });
 
     connect(m_repo, &GitRepository::operationFinished, this, &GitClientPanel::onOperationFinished);
@@ -203,7 +205,7 @@ void GitClientPanel::onCredentialsRequired(const QString &url, const QString &us
 }
 
 void GitClientPanel::onOperationFinished(bool success, const QString &message) {
-    QApplication::restoreOverrideCursor();
+    m_toolbar->setEnabled(true);
     m_statusLabel->setText(message);
     if (!success)
         QMessageBox::warning(this, "Git Error", message);

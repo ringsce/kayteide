@@ -42,10 +42,11 @@ rm -f "${TEMP_DMG_PATH}" "${FINAL_DMG_PATH}"
 
 # --- 1. Create a temporary read/write disk image ---
 echo "Creating temporary disk image: ${TEMP_DMG_PATH}"
-# Calculate size: App bundle size + some buffer (e.g., 50MB)
+# Calculate size: App bundle size + 20% for HFS+ overhead + 50MB buffer
+# (the bundled toolchain in Contents/tools is thousands of small files).
 # Use 'du -sm' to get size in megabytes (integer)
 APP_SIZE_MB=$(du -sm "${APP_PATH}" | awk '{print $1}')
-REQUIRED_SIZE=$((APP_SIZE_MB + 50)) # Add 50MB buffer
+REQUIRED_SIZE=$((APP_SIZE_MB * 12 / 10 + 50))
 if [ "${REQUIRED_SIZE}" -lt 100 ]; then # Minimum 100MB for small apps
     REQUIRED_SIZE=100
 fi
@@ -58,6 +59,9 @@ MOUNT_DIR="/Volumes/${VOLUME_NAME}"
 # Capture the output of hdiutil attach and extract ONLY the main device name (e.g., /dev/diskX)
 ATTACH_OUTPUT=$(hdiutil attach "${TEMP_DMG_PATH}" -readwrite -noverify -noBrowse -mountpoint "${MOUNT_DIR}")
 DISK_ID=$(echo "$ATTACH_OUTPUT" | grep '^/dev/disk' | head -n 1 | awk '{print $1}')
+
+# If anything below fails, don't leave the volume mounted.
+trap '[ -n "${DISK_ID}" ] && hdiutil detach "${DISK_ID}" -force >/dev/null 2>&1' EXIT
 
 # --- 3. Copy the application bundle into the mounted image ---
 echo "Copying ${APP_BUNDLE} to ${MOUNT_DIR}/"
@@ -129,6 +133,7 @@ else
     hdiutil info # Debug output
     exit 1
 fi
+trap - EXIT
 # --- 7. Convert to a compressed, read-only DMG ---
 echo "Converting to final compressed DMG: ${FINAL_DMG_PATH}"
 hdiutil convert "${TEMP_DMG_PATH}" -format UDZO -imagekey zlib-level=9 -o "${FINAL_DMG_PATH}" -ov

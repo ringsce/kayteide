@@ -6,6 +6,8 @@
 #include <QSyntaxHighlighter>
 #include <QTabWidget>
 #include <QVector>
+#include <QHash>
+#include <QPointer>
 #include <QTreeView>
 #include <QFileSystemModel>
 #include <QLineEdit>
@@ -36,25 +38,31 @@
 #include "uicanvaswidget.h"
 #include "componentseditordock.h"
 #include "propertyeditordock.h"
+#include "buildconfig.h"
+#include "editortabwidget.h"
 
 
 class LineNumberArea;
 class EditorTabWidget;
 class WelcomeTabWidget;
+class BottomPanel;
+class ModeBar;
+class BuildConfigurations;
+class ToolchainSetupDialog;
+class LargeFileTab;
 
 #include "vbsyntaxhighlighter.h"
 #include "cppsyntaxhighlighter.h"
 #include "kaytesyntaxhighlighter.h"
 #include "pascalsyntaxhighlighter.h"
 #include "delphisyntaxhighlighter.h"
-#include "choicemode.h"
-#include "downloadprogressdialog.h"
 #include "keyboard.h"
 
 // ── Version control panels ────────────────────────────────────────────────────
 // Forward-declare to avoid pulling heavy headers into every translation unit
 // that includes mainwindow.h.
 namespace Kayte::Svn { class SvnPanel; }
+namespace Kayte::Llm { class AssistantPanel; }
 
 // ─── TerminalWidget ───────────────────────────────────────────────────────────
 // Embedded bash terminal: runs /bin/bash as a child process and pipes I/O
@@ -96,6 +104,14 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+    // Open a file or project folder given on the command line.
+    void openPath(const QString &path);
+    void openFileAtLine(const QString &file, int line, int column = 0);
+    bool maybeSaveLargeTab(LargeFileTab *large);
+
+    // Reopen a saved local-LLM assistant session (KayteIDE --resume <hash>).
+    bool resumeAssistantSession(const QString &hash, QString *error = nullptr);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -158,12 +174,7 @@ private slots:
 
     // ── Dialogs ───────────────────────────────────────────────────────────────
     void showAboutDialog();
-    void showModeSelectionDialog();
     void on_actionNewProject_triggered();
-
-    // ── Mode / download ───────────────────────────────────────────────────────
-    void activateMode(ChoiceMode::DevelopmentMode mode);
-    void handleDownloadDialogFinished();
 
     // ── Line number area ──────────────────────────────────────────────────────
     void updateLineNumberAreaWidth(int newBlockCount);
@@ -178,7 +189,7 @@ private:
     void                       createNewTab(const QString &filePath = QString());
     bool                       saveCurrentFile();
 
-    // ── Welcome tab (Qt WebEngine start page) ──────────────────────────────────
+    // ── Welcome tab (native start page) ──────────────────────────────────
     WelcomeTabWidget *m_welcomeTab { nullptr };
     void               showWelcomeTab();
 
@@ -207,15 +218,37 @@ private:
     QString                m_currentProjectPath;
 
     // ── Terminal dock ─────────────────────────────────────────────────────────
-    TerminalWidget *m_terminalWidget { nullptr };
+    TerminalWidget *m_terminalWidget { nullptr };  // first terminal tab
+    BottomPanel    *m_bottomPanel    { nullptr };  // Problems/Output/Debug/Terminal/Ports
     QDockWidget    *m_terminalDock   { nullptr };
     QAction        *m_actTerminal    { nullptr };  // checkable – toggles dock
+
+    // ── Local LLM assistant (plugins/llm) ─────────────────────────────────────
+    Kayte::Llm::AssistantPanel *m_assistant     { nullptr };
+    QDockWidget                *m_assistantDock { nullptr };
+    void                        setupAssistantDock();
+
+    // ── Qt Creator-style mode bar (far left) ─────────────────────────────────
+    ModeBar *m_modeBar     { nullptr };
+    QAction *m_actGit      { nullptr };
+    int      m_modeWelcome { -1 };
+    int      m_modeEdit    { -1 };
+    int      m_modeDesign  { -1 };
+    int      m_modeDebug   { -1 };
+    int      m_btnProjects { -1 };
+    int      m_btnGit      { -1 };
+    int      m_btnHelp     { -1 };
+    void     setupModeBar();
+    void     onModeBarItem(int index);
+    void     updateModeBarKit();
 
     // ── Font Awesome ──────────────────────────────────────────────────────────
     // Load fa-solid-900.ttf from Qt resources (:/fa-solid-900.ttf) once, then
     // use m_faFont to render any ICON_FA_* glyph string on a QLabel / QAction.
     QFont m_faFont;
     void  setupFontAwesome();
+    QIcon faIcon(const char *glyph) const;   // FA glyph → theme-coloured icon
+    void  applyFontAwesomeIcons();           // main toolbar / menu icons
     void  setupTerminalDock();
     void  setupWidgetPalette();
 
@@ -237,17 +270,36 @@ private:
     QString m_currentProjectName;
 
     // ── Build commands (defaults; overridden by loaded project settings) ──────
-    QString m_buildCommand  { QStringLiteral("make all")                 };
-    QString m_runCommand    { QStringLiteral("./output_executable")      };
-    QString m_cleanCommand  { QStringLiteral("make clean")               };
-    QString m_debugCommand  { QStringLiteral("lldb ./output_executable") };
+    // Build / Run / Clean / Debug commands come from the active build
+    // configuration of the current project (see buildconfig.h).
+    BuildConfigurations *m_buildConfigs { nullptr };
 
-    // ── Download / mode ───────────────────────────────────────────────────────
-    QString                     defaultDownloadPath;
-    QStringList                 radModeRepos;
-    QStringList                 editorModeRepos;
-    void                        setupDownloadRepos();
-    ChoiceMode::DevelopmentMode currentDevelopmentMode { ChoiceMode::TextEditor };
+    // First-run / on-demand toolchain installer (requirements.sh in the bundle).
+    QPointer<ToolchainSetupDialog> m_setupDialog;
+    void maybeRunFirstSetup();
+    void showToolchainSetup(bool firstRun);
+
+    // Build diagnostics by file (canonical path), shown in the editors.
+    QHash<QString, QVector<EditorTabWidget::Diagnostic>> m_diagnostics;
+    static QString diagnosticKey(const QString &file);
+    void    applyDiagnostics(EditorTabWidget *tab);
+    // Run / Debug after a successful build ("Build before running").
+    enum class AfterBuild { Nothing, Run, Debug };
+    AfterBuild m_afterBuild { AfterBuild::Nothing };
+    QString    m_afterBuildCommand;
+    bool    buildFirst(AfterBuild then, const QString &thenCommand);
+    void    onTaskFinished(int exitCode, bool crashed);
+    void    ensureBuildConfigs();
+    QString configCommand(const QString BuildConfiguration::*field, const QString &what);
+    void    populateBuildConfigMenu(QMenu *menu);
+    void    editBuildConfigurations();
+    void    showKitMenu();
+    QString buildWorkingDir() const;
+    bool    confirmTrustedRun(const QString &command, const QString &dir);
+
+    // ── Development mode (Edit / Design in the mode bar), saved in .xprj ──────
+    enum class DevelopmentMode { TextEditor, RAD };
+    DevelopmentMode currentDevelopmentMode { DevelopmentMode::TextEditor };
 
     // ── Project list ──────────────────────────────────────────────────────────
     void populateProjectList();

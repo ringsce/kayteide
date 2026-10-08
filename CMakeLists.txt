@@ -40,7 +40,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(UPDATER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/updater")
 
 # ─── Qt 6 ─────────────────────────────────────────────────────────────────────
-find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Widgets Concurrent Network WebEngineWidgets)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Widgets Concurrent Network)
 
 # ─── libgit2 ──────────────────────────────────────────────────────────────────
 find_package(PkgConfig QUIET)
@@ -55,8 +55,9 @@ if(NOT LIBGIT2_FOUND)
     FetchContent_Declare(
             libgit2
             GIT_REPOSITORY https://github.com/libgit2/libgit2.git
-            GIT_TAG        v1.7.2
-            GIT_SHALLOW    TRUE
+            # v1.9.7 – fixes CVE-2026-53583…53587 and CVE-2026-5917. Pinned to
+            # the commit so a moved tag can't change what gets built.
+            GIT_TAG        49e408b3208bc3093757a1c2db938d3590f3f412
     )
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(BUILD_TESTS       OFF CACHE BOOL "" FORCE)
@@ -104,8 +105,8 @@ endif()
 FetchContent_Declare(
         IconFontCppHeaders
         GIT_REPOSITORY https://github.com/juliettef/IconFontCppHeaders.git
-        GIT_TAG        main
-        GIT_SHALLOW    TRUE
+        # Pinned commit (was `main`): upstream changes can't silently enter the build.
+        GIT_TAG        210b5a399a64270674560d633638952d1e8d804d
 )
 FetchContent_MakeAvailable(IconFontCppHeaders)
 
@@ -195,6 +196,9 @@ target_link_libraries(KayteSvnClient
                 $<$<BOOL:${KAYTE_SVN_NATIVE}>:${Subversion_LIBRARIES}>
 )
 
+# ─── Local LLM assistant plugin (Ollama) ──────────────────────────────────────
+add_subdirectory(plugins/llm)
+
 # ─── Unit-test plugin ─────────────────────────────────────────────────────────
 set(UNIT_CLIENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/plugins/unit_test")
 
@@ -225,9 +229,7 @@ set(PROJECT_SOURCES
         src/kaytesyntaxhighlighter.cpp
         src/pascalsyntaxhighlighter.cpp
         src/delphisyntaxhighlighter.cpp
-        src/choicemode.cpp
         src/myjsontranslator.cpp
-        src/downloadprogressdialog.cpp
         src/editortabwidget.cpp
         src/welcometabwidget.cpp
         plugins/project/newprojectdialog.cpp
@@ -236,19 +238,31 @@ set(PROJECT_SOURCES
         src/uicanvaswidget.cpp
         src/componentseditordock.cpp
         src/propertyeditordock.cpp
+        src/bottompanel.cpp
+        src/modebar.cpp
+        src/buildconfig.cpp
+        src/buildconfigdialog.cpp
+        src/kaytecli.cpp
+        src/markdownsyntaxhighlighter.cpp
+        src/toolchainsetupdialog.cpp
+        src/largefileview.cpp
 )
 
 set(PROJECT_HEADERS
         src/mainwindow.h
+        src/modebar.h
+        src/buildconfig.h
+        src/buildconfigdialog.h
+        src/kaytecli.h
+        src/markdownsyntaxhighlighter.h
+        src/toolchainsetupdialog.h
         src/linenumberarea.h
         src/vbsyntaxhighlighter.h
         src/cppsyntaxhighlighter.h
         src/kaytesyntaxhighlighter.h
         src/pascalsyntaxhighlighter.h
         src/delphisyntaxhighlighter.h
-        src/choicemode.h
         src/myjsontranslator.h
-        src/downloadprogressdialog.h
         src/editortabwidget.h
         src/welcometabwidget.h
         src/threads/threadmanager.h
@@ -260,12 +274,12 @@ set(PROJECT_HEADERS
         src/uicanvaswidget.h
         src/componentseditordock.h
         src/propertyeditordock.h
+        src/bottompanel.h
+        src/largefileview.h
 )
 
 set(PROJECT_FORMS
         src/mainwindow.ui
-        src/downloadprogressdialog.ui
-        src/choicemode.ui
         plugins/project/newprojectdialog.ui
 )
 
@@ -406,9 +420,9 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Widgets
         Qt6::Concurrent
         Qt6::Network
-        Qt6::WebEngineWidgets
         KayteGitClient
         KayteIDE::SvnClient
+        KayteLlmAssistant
 )
 
 target_compile_definitions(${PROJECT_NAME}
@@ -462,6 +476,60 @@ if(APPLE AND NOT ANDROID)
             COMMENT "Installing kayte tool inside app bundle"
             VERBATIM
     )
+
+    # kayte-container-run (runs Kayte programs in a fresh Linux VM through
+    # Apple container) is a script: install it on every build, not only when
+    # the IDE relinks, so edits to it always reach the bundle.
+    add_custom_target(install_kayte_container_run ALL
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/tools/bin"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/src/scripts/kayte-container-run.sh"
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/tools/bin/kayte-container-run"
+            COMMAND chmod +x
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/tools/bin/kayte-container-run"
+            # The toolchain installer the IDE runs on first launch.
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/tools/scripts"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/src/scripts/requirements.sh"
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/tools/scripts/requirements.sh"
+            COMMAND chmod +x
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/tools/scripts/requirements.sh"
+            DEPENDS "${CMAKE_SOURCE_DIR}/src/scripts/kayte-container-run.sh"
+                    "${CMAKE_SOURCE_DIR}/src/scripts/requirements.sh"
+            COMMENT "Installing kayte-container-run and requirements.sh inside app bundle"
+            VERBATIM
+    )
+    add_dependencies(install_kayte_container_run ${PROJECT_NAME})
+
+    # Bundle the external toolchain (FPC, Lazarus, QEMU, Kayte SDK) into
+    # Contents/tools at build time. Off by default: KayteIDE installs it on
+    # first launch (Tools ▸ Install / Update Toolchain…). When ON it only runs
+    # while the bundle has no toolchain; `cmake --build . --target
+    # bundle_tools` forces a refresh either way.
+    option(KAYTE_BUNDLE_TOOLS "Bundle the toolchain inside KayteIDE.app at build time" OFF)
+    set(KAYTE_REQUIREMENTS_SCRIPT "${CMAKE_SOURCE_DIR}/src/scripts/requirements.sh")
+    if(EXISTS "${KAYTE_REQUIREMENTS_SCRIPT}")
+        if(KAYTE_BUNDLE_TOOLS)
+            add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                    COMMAND sh -c "test -f \"$1/Contents/tools/VERSIONS.txt\" || \"$2\" --rosetta --app \"$1\""
+                            bundle-tools
+                            "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>"
+                            "${KAYTE_REQUIREMENTS_SCRIPT}"
+                    COMMENT "Bundling the toolchain inside app bundle (first build only)"
+                    VERBATIM
+            )
+        endif()
+        add_custom_target(bundle_tools
+                COMMAND "${KAYTE_REQUIREMENTS_SCRIPT}" --rosetta
+                        --app "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>"
+                DEPENDS ${PROJECT_NAME}
+                COMMENT "Refreshing the toolchain inside app bundle"
+                USES_TERMINAL
+                VERBATIM
+        )
+    endif()
 
     set(DMG_SCRIPT "${CMAKE_SOURCE_DIR}/create_dmg.sh")
     if(EXISTS "${DMG_SCRIPT}")

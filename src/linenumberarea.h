@@ -29,6 +29,7 @@
 #include <QFontMetrics>
 #include <QSize>
 #include <QRect>
+#include <QMap>
 
 // ── CodeEditor ────────────────────────────────────────────────────────────────
 class CodeEditor : public QPlainTextEdit
@@ -71,6 +72,12 @@ public:
     void setForegroundColor(const QColor &c) { m_fg = c; update(); }
     void setCurrentLineColor(const QColor &c){ m_currentFg = c; update(); }
 
+    // Build diagnostics shown as a bug icon beside the line number
+    // (red for errors, amber for warnings); hovering shows `text`.
+    struct Marker { bool error = true; QString text; };
+    void setMarkers(const QMap<int, Marker> &byBlockNumber);   // 0-based lines
+    static constexpr int kIconColumn = 16;
+
     // Called by MainWindow::updateLineNumberAreaWidth to push a new margin.
     // Uses CodeEditor::setViewportMargins if the editor is a CodeEditor,
     // otherwise falls back to the document-layout width calculation.
@@ -78,6 +85,7 @@ public:
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    bool event(QEvent *event) override;   // marker tooltips
 
 public slots:
     void setupConnections();
@@ -86,7 +94,10 @@ public slots:
     void updateArea(const QRect &rect, int dy);
 
 private:
+    int blockAt(int y) const;   // 0-based line at a gutter y, or -1
+
     QPlainTextEdit *m_codeEditor { nullptr };
+    QMap<int, Marker> m_markers;
     QColor          m_bg         { "#f0f0f0" };
     QColor          m_fg         { Qt::darkGray };
     QColor          m_currentFg  { Qt::black };

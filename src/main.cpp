@@ -16,6 +16,7 @@
 
 #include "mainwindow.h"
 #include "myjsontranslator.h"
+#include "kaytecli.h"
 
 #ifdef KAYTE_GIT_CLIENT_ENABLED
 #  include "GitClientPanel.hpp"
@@ -23,13 +24,14 @@
 
 int main(int argc, char *argv[])
 {
+    // The same binary is bundled as tools/sdk/usr/bin/kayte: under that name
+    // it is the command-line build tool, not the IDE.
+    if (isKayteCliInvocation(argv[0]))
+        return kayteCliMain(argc, argv);
+
     // ── High-DPI & surface format (must precede QApplication) ────────────────
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
-
-    // Required by Qt WebEngine (welcome-page browser view) before QApplication
-    // is constructed.
-    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
 
     QSurfaceFormat fmt;
     fmt.setSamples(4);
@@ -57,6 +59,13 @@ int main(int argc, char *argv[])
         QObject::tr("Git repository to open in the Git panel."),
         "repo-path");
     parser.addOption(repoOption);
+
+    QCommandLineOption resumeOption(
+        "resume",
+        QObject::tr("Resume a saved Kayte Assistant (local LLM) session by its hash "
+                    "(any unique prefix of 4+ characters)."),
+        "hash");
+    parser.addOption(resumeOption);
 
     parser.process(a);
 
@@ -133,10 +142,18 @@ int main(int argc, char *argv[])
 
     // ── Open startup file/folder in the editor (if provided) ─────────────────
     if (!positionalArgs.isEmpty()) {
-        QTimer::singleShot(0, &w, [&w, startupPath] {
-            // Call whatever open method MainWindow exposes, e.g.:
-            // w.openPath(startupPath);
-            Q_UNUSED(startupPath)
+        QTimer::singleShot(0, &w, [&w, startupPath] { w.openPath(startupPath); });
+    }
+
+    // ── Resume a local-LLM assistant session ─────────────────────────────────
+    if (parser.isSet(resumeOption)) {
+        const QString hash = parser.value(resumeOption);
+        QTimer::singleShot(0, &w, [&w, hash] {
+            QString error;
+            if (!w.resumeAssistantSession(hash, &error)) {
+                std::cerr << error.toStdString() << std::endl;
+                w.statusBar()->showMessage(error, 8000);
+            }
         });
     }
 

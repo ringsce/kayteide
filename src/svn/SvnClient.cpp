@@ -38,7 +38,9 @@ struct SvnClientPrivate
         if (!creds.username.isEmpty())
             full << QStringLiteral("--username") << creds.username;
         if (!creds.password.isEmpty()) {
-            full << QStringLiteral("--password") << creds.password;
+            // Never put the password on the command line: any local user can
+            // read process arguments (ps). Hand it over on stdin instead.
+            full << QStringLiteral("--password-from-stdin");
             if (!creds.storePassword)
                 full << QStringLiteral("--no-auth-cache");
         }
@@ -46,6 +48,10 @@ struct SvnClientPrivate
 
         proc.setArguments(full);
         proc.start();
+        if (!creds.password.isEmpty() && proc.waitForStarted(10'000)) {
+            proc.write(creds.password.toUtf8() + '\n');
+            proc.closeWriteChannel();
+        }
         proc.waitForFinished(60'000);
 
         return { QString::fromUtf8(proc.readAllStandardOutput()),
